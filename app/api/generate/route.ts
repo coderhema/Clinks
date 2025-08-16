@@ -26,17 +26,30 @@ function getModelProvider(modelId: string) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { type, prompt, config = {}, nodeId } = await request.json()
+    const { type, prompt, config = {}, nodeId, inputData } = await request.json()
 
-    if (!prompt || prompt.trim() === "") {
+    // Use inputData as prompt if no direct prompt provided (for connected nodes)
+    let finalPrompt = prompt
+    if (!finalPrompt && inputData) {
+      if (typeof inputData === "string") {
+        finalPrompt = inputData
+      } else if (inputData.content) {
+        finalPrompt = inputData.content
+      } else if (inputData.text) {
+        finalPrompt = inputData.text
+      }
+    }
+
+    if (!finalPrompt || finalPrompt.trim() === "") {
       return NextResponse.json(
         {
-          error: "Prompt is required",
+          error: "No input prompt provided",
           log: {
             nodeId,
             timestamp: new Date().toISOString(),
             status: "failed",
-            error: "Empty prompt provided",
+            error: "No input prompt provided - check if node is connected to input source",
+            inputData: inputData ? "Input data received but empty" : "No input data received",
           },
         },
         { status: 400 },
@@ -52,14 +65,15 @@ export async function POST(request: NextRequest) {
       type,
       model: modelId,
       provider,
-      prompt: prompt?.slice(0, 100) + (prompt?.length > 100 ? "..." : ""),
+      prompt: finalPrompt?.slice(0, 100) + (finalPrompt?.length > 100 ? "..." : ""),
       status: "starting",
+      hasInputData: !!inputData,
     }
 
     const startTime = Date.now()
     let result, usage, generatedContent
 
-    if (type === "image" || type === "logo") {
+    if (type === "image-prompt" || type === "image" || type === "logo") {
       try {
         const openrouterKey = process.env.OPENROUTER_API_KEY
         if (!openrouterKey) {
@@ -84,7 +98,7 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             model: imageModel,
-            prompt: prompt,
+            prompt: finalPrompt,
             n: 1,
             size: config.quality === "hd" ? "1024x1024" : "512x512",
             quality: config.quality || "standard",
@@ -112,6 +126,7 @@ export async function POST(request: NextRequest) {
             status: "completed",
             executionTime,
             resultLength: imageUrl.length,
+            finalPrompt: finalPrompt.slice(0, 200),
           },
         })
       } catch (error) {
@@ -125,7 +140,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    if (type === "audio") {
+    if (type === "audio-prompt" || type === "audio") {
       try {
         const openaiKey = process.env.OPENAI_API_KEY
         if (!openaiKey) {
@@ -147,7 +162,7 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             model: modelId || "tts-1",
-            input: prompt,
+            input: finalPrompt,
             voice: "alloy",
           }),
         })
@@ -170,6 +185,7 @@ export async function POST(request: NextRequest) {
             status: "completed",
             executionTime,
             resultLength: audioBuffer.byteLength,
+            finalPrompt: finalPrompt.slice(0, 200),
           },
         })
       } catch (error) {
@@ -226,7 +242,7 @@ export async function POST(request: NextRequest) {
       case "text":
         const textResult = await generateText({
           model: modelInstance,
-          prompt: prompt,
+          prompt: finalPrompt,
           maxTokens: config.maxTokens || 500,
           temperature: config.temperature || 0.7,
         })
@@ -238,7 +254,7 @@ export async function POST(request: NextRequest) {
       case "image-prompt":
         const imagePromptResult = await generateText({
           model: modelInstance,
-          prompt: `Create a detailed, artistic image generation prompt based on: "${prompt}". Include style, lighting, composition, and artistic details. Keep it under 200 words.`,
+          prompt: `Create a detailed, artistic image generation prompt based on: "${finalPrompt}". Include style, lighting, composition, and artistic details. Keep it under 200 words.`,
           maxTokens: 200,
           temperature: 0.8,
         })
@@ -253,7 +269,7 @@ export async function POST(request: NextRequest) {
       case "video-prompt":
         const videoPromptResult = await generateText({
           model: modelInstance,
-          prompt: `Create a detailed video generation prompt based on: "${prompt}". Include camera movements, scene descriptions, timing, and visual effects. Keep it under 150 words.`,
+          prompt: `Create a detailed video generation prompt based on: "${finalPrompt}". Include camera movements, scene descriptions, timing, and visual effects. Keep it under 150 words.`,
           maxTokens: 150,
           temperature: 0.8,
         })
@@ -268,7 +284,7 @@ export async function POST(request: NextRequest) {
       case "audio-prompt":
         const audioPromptResult = await generateText({
           model: modelInstance,
-          prompt: `Create a detailed audio generation prompt based on: "${prompt}". Include genre, instruments, mood, tempo, and style. Keep it under 100 words.`,
+          prompt: `Create a detailed audio generation prompt based on: "${finalPrompt}". Include genre, instruments, mood, tempo, and style. Keep it under 100 words.`,
           maxTokens: 100,
           temperature: 0.8,
         })
@@ -304,6 +320,7 @@ export async function POST(request: NextRequest) {
           totalTokens: usage?.totalTokens || 0,
         },
         resultLength: result?.length || 0,
+        finalPrompt: finalPrompt.slice(0, 200),
       },
     })
   } catch (error) {

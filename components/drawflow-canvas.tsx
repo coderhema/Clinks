@@ -12,7 +12,7 @@ declare global {
 export function DrawflowCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null)
   const drawflowRef = useRef<any>(null)
-  const { addReactFlowNode, updateNodeData, updateConnections } = useWorkflow()
+  const { addReactFlowNode, updateNodeData, updateConnections, deleteNode } = useWorkflow()
 
   useEffect(() => {
     // Load Drawflow from CDN
@@ -33,6 +33,10 @@ export function DrawflowCanvas() {
         e.preventDefault()
         selectAllNodes()
       }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        deleteSelectedNodes()
+      }
     }
 
     document.addEventListener("keydown", handleKeyDown)
@@ -48,37 +52,89 @@ export function DrawflowCanvas() {
   const selectAllNodes = () => {
     if (!drawflowRef.current) return
 
-    const nodes = document.querySelectorAll(".drawflow-node")
-    nodes.forEach((node) => {
-      node.classList.add("selected")
-    })
-    console.log("[v0] Selected all nodes")
+    try {
+      const nodes = document.querySelectorAll(".drawflow-node")
+      if (!nodes || nodes.length === 0) {
+        console.log("[v0] No nodes to select")
+        return
+      }
+
+      nodes.forEach((node) => {
+        if (node && node.classList) {
+          node.classList.add("selected")
+        }
+      })
+      console.log("[v0] Selected all nodes")
+    } catch (error) {
+      console.error("[v0] Error selecting nodes:", error)
+    }
   }
 
   const deleteSelectedNodes = () => {
     if (!drawflowRef.current) return
 
-    const selectedNodes = document.querySelectorAll(".drawflow-node.selected")
+    try {
+      const selectedNodes = document.querySelectorAll(".drawflow-node.selected")
 
-    if (selectedNodes.length === 0) {
-      // If no nodes selected, delete all nodes
-      const allNodes = document.querySelectorAll(".drawflow-node")
-      allNodes.forEach((node) => {
-        const nodeId = node.getAttribute("data-node")
-        if (nodeId) {
-          drawflowRef.current.removeNodeId(`node-${nodeId}`)
+      if (selectedNodes.length === 0) {
+        const allNodes = document.querySelectorAll(".drawflow-node")
+        if (!allNodes || allNodes.length === 0) {
+          console.log("[v0] No nodes to delete")
+          return
         }
-      })
-      console.log("[v0] Deleted all nodes")
-    } else {
-      // Delete only selected nodes
-      selectedNodes.forEach((node) => {
-        const nodeId = node.getAttribute("data-node")
-        if (nodeId) {
-          drawflowRef.current.removeNodeId(`node-${nodeId}`)
+
+        const nodeIds: string[] = []
+        allNodes.forEach((node) => {
+          if (node && node.getAttribute) {
+            const nodeId = node.getAttribute("data-node")
+            if (nodeId) {
+              nodeIds.push(nodeId)
+            }
+          }
+        })
+
+        nodeIds.forEach((nodeId) => {
+          try {
+            if (drawflowRef.current) {
+              drawflowRef.current.removeNodeId(`node-${nodeId}`)
+              deleteNode(nodeId)
+            }
+          } catch (err) {
+            console.error("[v0] Error deleting node:", nodeId, err)
+          }
+        })
+        console.log("[v0] Deleted all nodes:", nodeIds.length)
+      } else {
+        const selectedNodeIds: string[] = []
+        selectedNodes.forEach((node) => {
+          if (node && node.getAttribute) {
+            const nodeId = node.getAttribute("data-node")
+            if (nodeId) {
+              selectedNodeIds.push(nodeId)
+            }
+          }
+        })
+
+        selectedNodeIds.forEach((nodeId) => {
+          try {
+            if (drawflowRef.current) {
+              drawflowRef.current.removeNodeId(`node-${nodeId}`)
+              deleteNode(nodeId)
+            }
+          } catch (err) {
+            console.error("[v0] Error deleting selected node:", nodeId, err)
+          }
+        })
+        console.log("[v0] Deleted selected nodes:", selectedNodeIds.length)
+      }
+
+      setTimeout(() => {
+        if (drawflowRef.current) {
+          syncConnectionsToWorkflow(drawflowRef.current)
         }
-      })
-      console.log("[v0] Deleted selected nodes:", selectedNodes.length)
+      }, 100)
+    } catch (error) {
+      console.error("[v0] Error in deleteSelectedNodes:", error)
     }
   }
 
@@ -103,6 +159,12 @@ export function DrawflowCanvas() {
 
     editor.on("connectionRemoved", (info: any) => {
       console.log("[v0] Connection removed:", info)
+      syncConnectionsToWorkflow(editor)
+    })
+
+    editor.on("nodeRemoved", (id: string) => {
+      console.log("[v0] Node removed:", id)
+      deleteNode(id)
       syncConnectionsToWorkflow(editor)
     })
 
@@ -153,7 +215,6 @@ export function DrawflowCanvas() {
         background: #262626 !important;
       }
       
-      /* Enhanced node styling to match the provided design */
       .drawflow .drawflow-node {
         background: #1a1a1a !important;
         border: 1px solid #404040 !important;
@@ -167,7 +228,6 @@ export function DrawflowCanvas() {
         transform-origin: center !important;
       }
       
-      /* Instant drag response with no transition delays */
       .drawflow .drawflow-node.drag {
         transition: none !important;
         transform: scale(1.02) !important;
@@ -184,19 +244,6 @@ export function DrawflowCanvas() {
       .drawflow .drawflow-node.selected {
         border-color: #ffffff !important;
         box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3), 0 4px 20px rgba(0, 0, 0, 0.8) !important;
-      }
-      
-      /* Updated node header styling to match the design */
-      .drawflow .drawflow-node .title-box {
-        background: #2a2a2a !important;
-        color: white !important;
-        padding: 12px 16px !important;
-        font-weight: 500 !important;
-        border-radius: 0 !important;
-        border-bottom: 1px solid #404040 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
       }
       
       .drawflow .connection .main-path {
@@ -216,7 +263,6 @@ export function DrawflowCanvas() {
         stroke-width: 3px !important;
       }
       
-      /* Red square connectors matching the design */
       .drawflow .drawflow-node .input, 
       .drawflow .drawflow-node .output {
         background: #ef4444 !important;
@@ -254,7 +300,6 @@ export function DrawflowCanvas() {
         border-color: #b91c1c !important;
       }
       
-      /* Input and selector styling with neutral-900 background */
       .node-content input,
       .node-content select,
       .node-content textarea {
@@ -279,24 +324,43 @@ export function DrawflowCanvas() {
   }
 
   const syncConnectionsToWorkflow = (editor: any) => {
-    const drawflowData = editor.export()
-    const connections: Array<{ source: string; target: string; sourceHandle: string; targetHandle: string }> = []
+    try {
+      if (!editor) return
 
-    Object.values(drawflowData.drawflow.Home.data).forEach((node: any) => {
-      Object.entries(node.outputs).forEach(([outputKey, output]: [string, any]) => {
-        Object.values(output.connections).forEach((connection: any) => {
-          connections.push({
-            source: node.id.toString(),
-            target: connection.node,
-            sourceHandle: `output-${outputKey}`,
-            targetHandle: `input-${connection.output}`,
+      const drawflowData = editor.export()
+      if (!drawflowData || !drawflowData.drawflow || !drawflowData.drawflow.Home || !drawflowData.drawflow.Home.data) {
+        console.log("[v0] No drawflow data to sync")
+        updateConnections([])
+        return
+      }
+
+      const connections: Array<{ source: string; target: string; sourceHandle: string; targetHandle: string }> = []
+
+      Object.values(drawflowData.drawflow.Home.data).forEach((node: any) => {
+        if (node && node.outputs) {
+          Object.entries(node.outputs).forEach(([outputKey, output]: [string, any]) => {
+            if (output && output.connections) {
+              Object.values(output.connections).forEach((connection: any) => {
+                if (connection && connection.node) {
+                  connections.push({
+                    source: node.id.toString(),
+                    target: connection.node,
+                    sourceHandle: `output-${outputKey}`,
+                    targetHandle: `input-${connection.output}`,
+                  })
+                }
+              })
+            }
           })
-        })
+        }
       })
-    })
 
-    console.log("[v0] Syncing connections:", connections)
-    updateConnections(connections)
+      console.log("[v0] Syncing connections:", connections)
+      updateConnections(connections)
+    } catch (error) {
+      console.error("[v0] Error syncing connections:", error)
+      updateConnections([])
+    }
   }
 
   const syncNodeDataToWorkflow = (editor: any, nodeId: string) => {
@@ -305,17 +369,19 @@ export function DrawflowCanvas() {
 
     const nodeData: any = {}
 
-    // Extract text input values
     const textInputs = nodeElement.querySelectorAll('input[type="text"], textarea')
     textInputs.forEach((input: any, index) => {
       nodeData[`input_${index}`] = input.value
     })
 
-    // Extract select values
     const selects = nodeElement.querySelectorAll("select")
     selects.forEach((select: any, index) => {
       nodeData[`model_${index}`] = select.value
     })
+
+    if (nodeData.input_0) {
+      nodeData.content = nodeData.input_0
+    }
 
     console.log("[v0] Syncing node data:", nodeId, nodeData)
     updateNodeData(nodeId, nodeData)
@@ -360,22 +426,18 @@ export function DrawflowCanvas() {
       if (nodeElement) {
         const nodeId = nodeElement.getAttribute("data-node")
         if (nodeId) {
-          // Toggle selection if Ctrl/Cmd is held, otherwise select only this node
           if (e.ctrlKey || e.metaKey) {
             nodeElement.classList.toggle("selected")
           } else {
-            // Clear all selections first
             document.querySelectorAll(".drawflow-node.selected").forEach((node) => {
               node.classList.remove("selected")
             })
             nodeElement.classList.add("selected")
           }
 
-          // Trigger preview panel update
           window.dispatchEvent(new CustomEvent("nodeSelected", { detail: { nodeId } }))
         }
       } else {
-        // Clicked on empty canvas, clear all selections
         document.querySelectorAll(".drawflow-node.selected").forEach((node) => {
           node.classList.remove("selected")
         })
@@ -388,7 +450,6 @@ export function DrawflowCanvas() {
 
     const nodeHtml = createNodeHtml(nodeData, nodeId)
 
-    // Determine inputs and outputs based on node type
     let inputs = 0
     let outputs = 1
 
@@ -429,6 +490,41 @@ export function DrawflowCanvas() {
   }
 
   const createNodeHtml = (nodeData: any, nodeId: string) => {
+    const getModelOptions = (nodeType: string) => {
+      switch (nodeType) {
+        case "text-generator":
+          return `
+            <option value="llama-3.1-8b-instant">Llama 3.1 8B (Fast)</option>
+            <option value="llama3-70b-8192">Llama 3 70B</option>
+            <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+            <option value="gemma2-9b-it">Gemma 2 9B</option>
+            <option value="openai/gpt-4o">GPT-4o (OpenRouter)</option>
+            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (OpenRouter)</option>
+          `
+        case "image-generator":
+        case "logo-generator":
+          return `
+            <option value="openai/dall-e-3">DALL-E 3</option>
+            <option value="openai/dall-e-2">DALL-E 2</option>
+            <option value="stability-ai/sdxl">Stable Diffusion XL</option>
+            <option value="midjourney/midjourney">Midjourney</option>
+          `
+        case "video-generator":
+          return `
+            <option value="openai/dall-e-3">DALL-E 3 (Image)</option>
+            <option value="stability-ai/sdxl">Stable Diffusion XL</option>
+            <option value="midjourney/midjourney">Midjourney</option>
+          `
+        case "audio-generator":
+          return `
+            <option value="tts-1">OpenAI TTS-1</option>
+            <option value="tts-1-hd">OpenAI TTS-1 HD</option>
+          `
+        default:
+          return `<option value="llama-3.1-8b-instant">Llama 3.1 8B (Fast)</option>`
+      }
+    }
+
     switch (nodeData.id) {
       case "text-input":
         return `
@@ -460,12 +556,12 @@ export function DrawflowCanvas() {
             </div>
             <div class="p-4 space-y-3">
               <p class="text-neutral-400 text-sm">${nodeData.description}</p>
-              <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white" data-model="selection">
-                <option value="llama-3.1-8b-instant">Llama 3.1 8B (Fast)</option>
-                <option value="llama3-70b-8192">Llama 3 70B</option>
-                <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
-                <option value="gemma2-9b-it">Gemma 2 9B</option>
-              </select>
+              <div class="space-y-2">
+                <label class="text-xs text-neutral-400 uppercase tracking-wider">Model</label>
+                <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500" data-model="selection">
+                  ${getModelOptions("text-generator")}
+                </select>
+              </div>
               <div class="w-full h-24 bg-neutral-900 border border-neutral-600 flex items-center justify-center text-xs text-neutral-400 hover:bg-neutral-800 transition-colors">
                 <span class="input-preview">Waiting for input...</span>
               </div>
@@ -487,12 +583,55 @@ export function DrawflowCanvas() {
             </div>
             <div class="p-4 space-y-3">
               <p class="text-neutral-400 text-sm">${nodeData.description}</p>
-              <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white" data-model="selection">
-                <option value="openai/dall-e-3">DALL-E 3</option>
-                <option value="openai/dall-e-2">DALL-E 2</option>
-                <option value="stability-ai/sdxl">Stable Diffusion XL</option>
-                <option value="midjourney/midjourney">Midjourney</option>
-              </select>
+              <div class="space-y-2">
+                <label class="text-xs text-neutral-400 uppercase tracking-wider">Model</label>
+                <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500" data-model="selection">
+                  ${getModelOptions(nodeData.id)}
+                </select>
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs text-neutral-400 uppercase tracking-wider">Quality</label>
+                <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500" data-quality="selection">
+                  <option value="standard">Standard</option>
+                  <option value="hd">HD</option>
+                </select>
+              </div>
+              <div class="w-full h-24 bg-neutral-900 border border-neutral-600 flex items-center justify-center text-xs text-neutral-400 hover:bg-neutral-800 transition-colors">
+                <span class="input-preview">Waiting for input...</span>
+              </div>
+            </div>
+          </div>
+        `
+
+      case "audio-generator":
+        return `
+          <div class="node-content">
+            <div class="title-box">
+              <div class="flex items-center gap-3">
+                <div class="w-4 h-4 bg-red-500"></div>
+                <span class="font-semibold text-white">${nodeData.name}</span>
+              </div>
+              <div class="w-3 h-3 bg-red-500"></div>
+            </div>
+            <div class="p-4 space-y-3">
+              <p class="text-neutral-400 text-sm">${nodeData.description}</p>
+              <div class="space-y-2">
+                <label class="text-xs text-neutral-400 uppercase tracking-wider">Voice Model</label>
+                <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500" data-model="selection">
+                  ${getModelOptions("audio-generator")}
+                </select>
+              </div>
+              <div class="space-y-2">
+                <label class="text-xs text-neutral-400 uppercase tracking-wider">Voice</label>
+                <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white focus:border-red-500 focus:ring-1 focus:ring-red-500" data-voice="selection">
+                  <option value="alloy">Alloy</option>
+                  <option value="echo">Echo</option>
+                  <option value="fable">Fable</option>
+                  <option value="onyx">Onyx</option>
+                  <option value="nova">Nova</option>
+                  <option value="shimmer">Shimmer</option>
+                </select>
+              </div>
               <div class="w-full h-24 bg-neutral-900 border border-neutral-600 flex items-center justify-center text-xs text-neutral-400 hover:bg-neutral-800 transition-colors">
                 <span class="input-preview">Waiting for input...</span>
               </div>
