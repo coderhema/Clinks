@@ -5,7 +5,17 @@ import { createContext, useContext, useState, useCallback } from "react"
 
 export interface WorkflowNode {
   id: string
-  type: "text-input" | "image-input" | "image-gen" | "video-gen" | "audio-gen" | "output"
+  type:
+    | "text-input"
+    | "image-input"
+    | "image-gen"
+    | "video-gen"
+    | "audio-gen"
+    | "output"
+    | "image-generator"
+    | "video-generator"
+    | "audio-generator"
+    | "logo-generator"
   position: { x: number; y: number }
   data: {
     label: string
@@ -51,6 +61,8 @@ interface WorkflowContextType {
   addReactFlowNode: (type: string, label: string, position?: { x: number; y: number }) => void
   executeWorkflow: () => Promise<void>
   isExecuting: boolean
+  executionLogs: any[]
+  clearLogs: () => void
 }
 
 const WorkflowContext = createContext<WorkflowContextType | null>(null)
@@ -80,6 +92,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   const [connections, setConnections] = useState<WorkflowConnection[]>([])
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
+  const [executionLogs, setExecutionLogs] = useState<any[]>([])
 
   const addNode = useCallback((node: Omit<WorkflowNode, "id">) => {
     const newNode: WorkflowNode = {
@@ -132,6 +145,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
 
   const executeWorkflow = useCallback(async () => {
     setIsExecuting(true)
+    setExecutionLogs([]) // Clear previous logs
+
     try {
       // Sort nodes by execution order (based on connections)
       const executionOrder = getExecutionOrder(nodes, connections)
@@ -140,11 +155,29 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         const node = nodes.find((n) => n.id === nodeId)
         if (!node) continue
 
+        const startLog = {
+          nodeId,
+          timestamp: new Date().toISOString(),
+          type: node.type,
+          status: "running",
+          model: node.data.config?.model || "llama-3.1-8b-instant",
+        }
+        setExecutionLogs((prev) => [...prev, startLog])
+
         // Execute node based on type
         await executeNode(node)
       }
     } catch (error) {
       console.error("Workflow execution failed:", error)
+      setExecutionLogs((prev) => [
+        ...prev,
+        {
+          nodeId: "workflow",
+          timestamp: new Date().toISOString(),
+          status: "failed",
+          error: error.message,
+        },
+      ])
     } finally {
       setIsExecuting(false)
     }
@@ -165,14 +198,17 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
 
       let generationType = ""
       switch (node.type) {
-        case "image-gen":
+        case "image-generator":
           generationType = "image-prompt"
           break
-        case "video-gen":
+        case "video-generator":
           generationType = "video-prompt"
           break
-        case "audio-gen":
+        case "audio-generator":
           generationType = "audio-prompt"
+          break
+        case "logo-generator":
+          generationType = "image-prompt"
           break
         case "text-input":
           generationType = "text"
@@ -183,20 +219,31 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
 
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(node.data.config?.provider === "openrouter" && {
+            "x-openrouter-key": localStorage.getItem("openrouter-api-key") || "",
+          }),
+        },
         body: JSON.stringify({
           type: generationType,
           prompt,
+          nodeId: node.id,
           config: {
             model: node.data.config?.model || "llama-3.1-8b-instant",
             maxTokens: node.data.config?.maxTokens || 500,
             temperature: node.data.config?.temperature || 0.7,
+            provider: node.data.config?.provider || "groq",
             ...node.data.config,
           },
         }),
       })
 
       const result = await response.json()
+
+      if (result.log) {
+        setExecutionLogs((prev) => [...prev, result.log])
+      }
 
       // Update node with result
       updateNode(node.id, {
@@ -208,6 +255,15 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       })
     } catch (error) {
       console.error(`Failed to execute node ${node.id}:`, error)
+      setExecutionLogs((prev) => [
+        ...prev,
+        {
+          nodeId: node.id,
+          timestamp: new Date().toISOString(),
+          status: "failed",
+          error: error.message,
+        },
+      ])
     }
   }
 
@@ -261,6 +317,10 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setSelectedNode(null)
   }, [])
 
+  const clearLogs = useCallback(() => {
+    setExecutionLogs([])
+  }, [])
+
   return (
     <WorkflowContext.Provider
       value={{
@@ -279,6 +339,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         addReactFlowNode,
         executeWorkflow,
         isExecuting,
+        executionLogs,
+        clearLogs,
       }}
     >
       {children}
