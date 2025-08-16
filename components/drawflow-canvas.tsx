@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
+import { useWorkflow } from "./workflow-provider"
 
 declare global {
   interface Window {
@@ -11,6 +12,7 @@ declare global {
 export function DrawflowCanvas() {
   const canvasRef = useRef<HTMLDivElement>(null)
   const drawflowRef = useRef<any>(null)
+  const { addReactFlowNode, updateNodeData, updateConnections } = useWorkflow()
 
   useEffect(() => {
     // Load Drawflow from CDN
@@ -26,12 +28,59 @@ export function DrawflowCanvas() {
     }
     document.head.appendChild(script)
 
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.key === "A") {
+        e.preventDefault()
+        selectAllNodes()
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown)
+
     return () => {
       if (drawflowRef.current) {
         drawflowRef.current.clear()
       }
+      document.removeEventListener("keydown", handleKeyDown)
     }
   }, [])
+
+  const selectAllNodes = () => {
+    if (!drawflowRef.current) return
+
+    const nodes = document.querySelectorAll(".drawflow-node")
+    nodes.forEach((node) => {
+      node.classList.add("selected")
+    })
+    console.log("[v0] Selected all nodes")
+  }
+
+  const deleteSelectedNodes = () => {
+    if (!drawflowRef.current) return
+
+    const selectedNodes = document.querySelectorAll(".drawflow-node.selected")
+
+    if (selectedNodes.length === 0) {
+      // If no nodes selected, delete all nodes
+      const allNodes = document.querySelectorAll(".drawflow-node")
+      allNodes.forEach((node) => {
+        const nodeId = node.getAttribute("data-node")
+        if (nodeId) {
+          drawflowRef.current.removeNodeId(`node-${nodeId}`)
+        }
+      })
+      console.log("[v0] Deleted all nodes")
+    } else {
+      // Delete only selected nodes
+      selectedNodes.forEach((node) => {
+        const nodeId = node.getAttribute("data-node")
+        if (nodeId) {
+          drawflowRef.current.removeNodeId(`node-${nodeId}`)
+        }
+      })
+      console.log("[v0] Deleted selected nodes:", selectedNodes.length)
+    }
+  }
 
   const initializeDrawflow = () => {
     if (!canvasRef.current || !window.Drawflow) return
@@ -46,6 +95,21 @@ export function DrawflowCanvas() {
     editor.zoom_min = 0.1
     editor.zoom_value = 0.1
     editor.start()
+
+    editor.on("connectionCreated", (info: any) => {
+      console.log("[v0] Connection created:", info)
+      syncConnectionsToWorkflow(editor)
+    })
+
+    editor.on("connectionRemoved", (info: any) => {
+      console.log("[v0] Connection removed:", info)
+      syncConnectionsToWorkflow(editor)
+    })
+
+    editor.on("nodeDataChanged", (id: string) => {
+      console.log("[v0] Node data changed:", id)
+      syncNodeDataToWorkflow(editor, id)
+    })
 
     const style = document.createElement("style")
     style.textContent = `
@@ -212,7 +276,49 @@ export function DrawflowCanvas() {
     document.head.appendChild(style)
 
     setupFastDragAndDrop(editor)
-    addSampleNodes(editor)
+  }
+
+  const syncConnectionsToWorkflow = (editor: any) => {
+    const drawflowData = editor.export()
+    const connections: Array<{ source: string; target: string; sourceHandle: string; targetHandle: string }> = []
+
+    Object.values(drawflowData.drawflow.Home.data).forEach((node: any) => {
+      Object.entries(node.outputs).forEach(([outputKey, output]: [string, any]) => {
+        Object.values(output.connections).forEach((connection: any) => {
+          connections.push({
+            source: node.id.toString(),
+            target: connection.node,
+            sourceHandle: `output-${outputKey}`,
+            targetHandle: `input-${connection.output}`,
+          })
+        })
+      })
+    })
+
+    console.log("[v0] Syncing connections:", connections)
+    updateConnections(connections)
+  }
+
+  const syncNodeDataToWorkflow = (editor: any, nodeId: string) => {
+    const nodeElement = document.querySelector(`[data-node="${nodeId}"]`)
+    if (!nodeElement) return
+
+    const nodeData: any = {}
+
+    // Extract text input values
+    const textInputs = nodeElement.querySelectorAll('input[type="text"], textarea')
+    textInputs.forEach((input: any, index) => {
+      nodeData[`input_${index}`] = input.value
+    })
+
+    // Extract select values
+    const selects = nodeElement.querySelectorAll("select")
+    selects.forEach((select: any, index) => {
+      nodeData[`model_${index}`] = select.value
+    })
+
+    console.log("[v0] Syncing node data:", nodeId, nodeData)
+    updateNodeData(nodeId, nodeData)
   }
 
   const setupFastDragAndDrop = (editor: any) => {
@@ -254,9 +360,25 @@ export function DrawflowCanvas() {
       if (nodeElement) {
         const nodeId = nodeElement.getAttribute("data-node")
         if (nodeId) {
+          // Toggle selection if Ctrl/Cmd is held, otherwise select only this node
+          if (e.ctrlKey || e.metaKey) {
+            nodeElement.classList.toggle("selected")
+          } else {
+            // Clear all selections first
+            document.querySelectorAll(".drawflow-node.selected").forEach((node) => {
+              node.classList.remove("selected")
+            })
+            nodeElement.classList.add("selected")
+          }
+
           // Trigger preview panel update
           window.dispatchEvent(new CustomEvent("nodeSelected", { detail: { nodeId } }))
         }
+      } else {
+        // Clicked on empty canvas, clear all selections
+        document.querySelectorAll(".drawflow-node.selected").forEach((node) => {
+          node.classList.remove("selected")
+        })
       }
     })
   }
@@ -264,7 +386,7 @@ export function DrawflowCanvas() {
   const addNodeToCanvas = (editor: any, nodeData: any, x: number, y: number) => {
     const nodeId = `${nodeData.id}_${Date.now()}`
 
-    const nodeHtml = createNodeHtml(nodeData)
+    const nodeHtml = createNodeHtml(nodeData, nodeId)
 
     // Determine inputs and outputs based on node type
     let inputs = 0
@@ -282,9 +404,31 @@ export function DrawflowCanvas() {
     }
 
     editor.addNode(nodeData.id, inputs, outputs, x, y, nodeData.id, {}, nodeHtml)
+
+    addReactFlowNode(nodeId, nodeData.name, {
+      x,
+      y,
+      type: nodeData.id,
+      data: {
+        label: nodeData.name,
+        nodeType: nodeData.id,
+        description: nodeData.description,
+      },
+    })
+
+    setTimeout(() => {
+      const nodeElement = document.querySelector(`[data-node="${nodeId}"]`)
+      if (nodeElement) {
+        const inputs = nodeElement.querySelectorAll("input, textarea, select")
+        inputs.forEach((input: any) => {
+          input.addEventListener("input", () => syncNodeDataToWorkflow(editor, nodeId))
+          input.addEventListener("change", () => syncNodeDataToWorkflow(editor, nodeId))
+        })
+      }
+    }, 100)
   }
 
-  const createNodeHtml = (nodeData: any) => {
+  const createNodeHtml = (nodeData: any, nodeId: string) => {
     switch (nodeData.id) {
       case "text-input":
         return `
@@ -299,7 +443,32 @@ export function DrawflowCanvas() {
             <div class="p-4">
               <p class="text-neutral-400 text-sm mb-3">A simple text input field</p>
               <textarea class="w-full h-20 bg-neutral-900 border border-neutral-600 p-3 text-sm text-white resize-none" 
-                        placeholder="Enter text..."></textarea>
+                        placeholder="Enter text..." data-input="text"></textarea>
+            </div>
+          </div>
+        `
+
+      case "text-generator":
+        return `
+          <div class="node-content">
+            <div class="title-box">
+              <div class="flex items-center gap-3">
+                <div class="w-4 h-4 bg-red-500"></div>
+                <span class="font-semibold text-white">${nodeData.name}</span>
+              </div>
+              <div class="w-3 h-3 bg-red-500"></div>
+            </div>
+            <div class="p-4 space-y-3">
+              <p class="text-neutral-400 text-sm">${nodeData.description}</p>
+              <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white" data-model="selection">
+                <option value="llama-3.1-8b-instant">Llama 3.1 8B (Fast)</option>
+                <option value="llama3-70b-8192">Llama 3 70B</option>
+                <option value="mixtral-8x7b-32768">Mixtral 8x7B</option>
+                <option value="gemma2-9b-it">Gemma 2 9B</option>
+              </select>
+              <div class="w-full h-24 bg-neutral-900 border border-neutral-600 flex items-center justify-center text-xs text-neutral-400 hover:bg-neutral-800 transition-colors">
+                <span class="input-preview">Waiting for input...</span>
+              </div>
             </div>
           </div>
         `
@@ -318,13 +487,14 @@ export function DrawflowCanvas() {
             </div>
             <div class="p-4 space-y-3">
               <p class="text-neutral-400 text-sm">${nodeData.description}</p>
-              <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white">
-                <option>Model Option 1</option>
-                <option>Model Option 2</option>
-                <option>Model Option 3</option>
+              <select class="w-full bg-neutral-900 border border-neutral-600 p-2 text-sm text-white" data-model="selection">
+                <option value="openai/dall-e-3">DALL-E 3</option>
+                <option value="openai/dall-e-2">DALL-E 2</option>
+                <option value="stability-ai/sdxl">Stable Diffusion XL</option>
+                <option value="midjourney/midjourney">Midjourney</option>
               </select>
               <div class="w-full h-24 bg-neutral-900 border border-neutral-600 flex items-center justify-center text-xs text-neutral-400 hover:bg-neutral-800 transition-colors">
-                Preview Area
+                <span class="input-preview">Waiting for input...</span>
               </div>
             </div>
           </div>
@@ -346,27 +516,6 @@ export function DrawflowCanvas() {
           </div>
         `
     }
-  }
-
-  const addSampleNodes = (editor: any) => {
-    // Clear any existing nodes first
-    editor.clear()
-
-    // Add a few sample nodes with better spacing
-    const textInputHtml = createNodeHtml({
-      id: "text-input",
-      name: "Text Input",
-      description: "Enter text prompts",
-    })
-
-    const imageGenHtml = createNodeHtml({
-      id: "image-generator",
-      name: "Image Generator",
-      description: "Generate images from text",
-    })
-
-    editor.addNode("textinput", 0, 1, 150, 200, "textinput", {}, textInputHtml)
-    editor.addNode("imagegen", 1, 1, 500, 200, "imagegen", {}, imageGenHtml)
   }
 
   return (

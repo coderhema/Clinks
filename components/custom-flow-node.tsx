@@ -18,29 +18,57 @@ const nodeIcons = {
   output: Upload,
 }
 
-// Available models from both Groq and OpenRouter
-const availableModels = [
-  // Groq Models
+const textModels = [
+  // Groq Models (Text only)
   { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B (Fast)", provider: "Groq" },
   { value: "llama3-70b-8192", label: "Llama 3 70B", provider: "Groq" },
   { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B", provider: "Groq" },
   { value: "gemma2-9b-it", label: "Gemma 2 9B", provider: "Groq" },
-  { value: "llama3-groq-70b-8192-tool-use-preview", label: "Llama 3 Groq 70B Tool Use", provider: "Groq" },
 
-  // OpenRouter Models (Popular ones)
+  // OpenRouter Text Models
   { value: "openai/gpt-4o", label: "GPT-4o", provider: "OpenAI" },
   { value: "openai/gpt-4o-mini", label: "GPT-4o Mini", provider: "OpenAI" },
   { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet", provider: "Anthropic" },
   { value: "anthropic/claude-3-haiku", label: "Claude 3 Haiku", provider: "Anthropic" },
   { value: "google/gemini-pro-1.5", label: "Gemini Pro 1.5", provider: "Google" },
-  { value: "google/gemini-flash-1.5", label: "Gemini Flash 1.5", provider: "Google" },
-  { value: "meta-llama/llama-3.1-405b-instruct", label: "Llama 3.1 405B", provider: "Meta" },
-  { value: "meta-llama/llama-3.1-70b-instruct", label: "Llama 3.1 70B", provider: "Meta" },
-  { value: "mistralai/mixtral-8x22b-instruct", label: "Mixtral 8x22B", provider: "Mistral" },
-  { value: "mistralai/mistral-large", label: "Mistral Large", provider: "Mistral" },
-  { value: "cohere/command-r-plus", label: "Command R+", provider: "Cohere" },
-  { value: "perplexity/llama-3.1-sonar-large-128k-online", label: "Sonar Large Online", provider: "Perplexity" },
 ]
+
+const imageModels = [
+  // OpenRouter Image Models (High Quality Image Generation)
+  { value: "openai/dall-e-3", label: "DALL-E 3 (High Quality)", provider: "OpenAI" },
+  { value: "openai/dall-e-2", label: "DALL-E 2 (Fast)", provider: "OpenAI" },
+  { value: "stability-ai/stable-diffusion-xl", label: "Stable Diffusion XL", provider: "Stability AI" },
+  { value: "stability-ai/stable-diffusion-2-1", label: "Stable Diffusion 2.1", provider: "Stability AI" },
+  { value: "midjourney/midjourney", label: "Midjourney", provider: "Midjourney" },
+]
+
+const audioModels = [
+  // OpenAI Audio Models
+  { value: "tts-1", label: "TTS-1 (Fast)", provider: "OpenAI" },
+  { value: "tts-1-hd", label: "TTS-1 HD (High Quality)", provider: "OpenAI" },
+]
+
+const videoModels = [
+  // Placeholder for video models (limited availability)
+  { value: "runway-gen2", label: "RunwayML Gen-2", provider: "RunwayML" },
+  { value: "stable-video", label: "Stable Video Diffusion", provider: "Stability AI" },
+]
+
+const getModelsForNodeType = (nodeType: string) => {
+  switch (nodeType) {
+    case "text-input":
+      return textModels
+    case "image-generator":
+    case "logo-generator":
+      return imageModels
+    case "audio-generator":
+      return audioModels
+    case "video-generator":
+      return videoModels
+    default:
+      return textModels
+  }
+}
 
 interface CustomFlowNodeProps {
   node: any
@@ -134,7 +162,8 @@ export function CustomFlowNode({
     [node.id, node.data, onUpdateNode],
   )
 
-  const selectedModel = node.data.config?.model || "llama-3.1-8b-instant"
+  const availableModels = getModelsForNodeType(node.type)
+  const selectedModel = node.data.config?.model || availableModels[0]?.value
   const selectedModelInfo = availableModels.find((m) => m.value === selectedModel)
 
   return (
@@ -199,28 +228,44 @@ export function CustomFlowNode({
           )}
 
           {node.type === "text-input" && (
-            <textarea
-              className="w-full h-20 bg-neutral-900 border border-neutral-600 text-white text-sm p-3 resize-none focus:border-neutral-500 focus:outline-none transition-colors"
-              placeholder="Enter your prompt..."
-              defaultValue={node.data.content}
-              onChange={(e) => handleContentChange(e.target.value)}
-              onClick={(e) => e.stopPropagation()}
-            />
+            <div className="space-y-2">
+              <textarea
+                className="w-full h-20 bg-neutral-900 border border-neutral-600 text-white text-sm p-3 resize-none focus:border-neutral-500 focus:outline-none transition-colors"
+                placeholder="Enter your prompt..."
+                defaultValue={node.data.content}
+                onChange={(e) => handleContentChange(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <div className="text-xs text-neutral-500">
+                Output: {node.data.content ? `${node.data.content.length} characters` : "No content"}
+              </div>
+            </div>
           )}
 
           {(node.type === "image-generator" || node.type === "video-generator" || node.type === "logo-generator") && (
             <div className="space-y-3">
+              <div className="text-xs text-neutral-400">
+                Input:{" "}
+                {node.data.inputPrompt
+                  ? node.data.inputPrompt.length > 50
+                    ? node.data.inputPrompt.substring(0, 50) + "..."
+                    : node.data.inputPrompt
+                  : "Waiting for input connection..."}
+              </div>
+
               <div className="w-full h-32 bg-neutral-800 border border-neutral-600 flex items-center justify-center overflow-hidden">
                 {node.data.preview ? (
                   <img
                     src={node.data.preview || "/placeholder.svg"}
-                    alt="Preview"
+                    alt="Generated content"
                     className="max-w-full max-h-full object-cover"
                   />
                 ) : (
                   <div className="flex flex-col items-center gap-2 text-neutral-500">
                     <Icon size={28} />
-                    <span className="text-xs">No preview</span>
+                    <span className="text-xs">
+                      {node.data.inputPrompt ? "Ready to generate" : "Connect text input to generate"}
+                    </span>
                   </div>
                 )}
               </div>
@@ -228,17 +273,26 @@ export function CustomFlowNode({
               <div className="space-y-2">
                 <input
                   type="text"
-                  placeholder="Style parameters..."
+                  placeholder="Additional style parameters..."
                   className="w-full bg-neutral-900 border border-neutral-600 text-white text-sm px-3 py-2 focus:border-neutral-500 focus:outline-none transition-colors"
                   onClick={(e) => e.stopPropagation()}
+                  onChange={(e) =>
+                    onUpdateNode(node.id, {
+                      data: { ...node.data, styleParams: e.target.value },
+                    })
+                  }
                 />
                 <select
                   className="w-full bg-neutral-900 border border-neutral-600 text-white text-sm px-3 py-2 focus:border-neutral-500 focus:outline-none transition-colors"
                   onClick={(e) => e.stopPropagation()}
+                  onChange={(e) =>
+                    onUpdateNode(node.id, {
+                      data: { ...node.data, quality: e.target.value },
+                    })
+                  }
                 >
-                  <option>Quality: Standard</option>
-                  <option>Quality: High</option>
-                  <option>Quality: Ultra</option>
+                  <option value="standard">Quality: Standard</option>
+                  <option value="hd">Quality: HD</option>
                 </select>
               </div>
 
@@ -247,6 +301,7 @@ export function CustomFlowNode({
                   size="sm"
                   className="flex-1 h-8 text-xs bg-blue-600 hover:bg-blue-700 border-0 transition-colors duration-100"
                   onClick={(e) => e.stopPropagation()}
+                  disabled={!node.data.inputPrompt}
                 >
                   <Play size={14} className="mr-2" />
                   Generate
@@ -265,26 +320,43 @@ export function CustomFlowNode({
 
           {node.type === "audio-generator" && (
             <div className="space-y-3">
+              <div className="text-xs text-neutral-400">
+                Input: {node.data.inputPrompt ? node.data.inputPrompt.substring(0, 50) + "..." : "Waiting for input..."}
+              </div>
+
               <div className="w-full h-20 bg-neutral-800 border border-neutral-600 flex items-center justify-center">
-                <div className="flex flex-col items-center gap-2 text-neutral-500">
-                  <Music size={24} />
-                  <span className="text-xs">Audio Preview</span>
-                </div>
+                {node.data.preview ? (
+                  <audio controls className="w-full">
+                    <source src={node.data.preview} type="audio/mpeg" />
+                    Your browser does not support the audio element.
+                  </audio>
+                ) : (
+                  <div className="flex flex-col items-center gap-2 text-neutral-500">
+                    <Music size={24} />
+                    <span className="text-xs">Connect input to generate</span>
+                  </div>
+                )}
               </div>
 
               <select
                 className="w-full bg-neutral-900 border border-neutral-600 text-white text-sm px-3 py-2 focus:border-neutral-500 focus:outline-none transition-colors"
                 onClick={(e) => e.stopPropagation()}
+                onChange={(e) =>
+                  onUpdateNode(node.id, {
+                    data: { ...node.data, duration: e.target.value },
+                  })
+                }
               >
-                <option>Duration: 30s</option>
-                <option>Duration: 60s</option>
-                <option>Duration: 120s</option>
+                <option value="30s">Duration: 30s</option>
+                <option value="60s">Duration: 60s</option>
+                <option value="120s">Duration: 120s</option>
               </select>
 
               <Button
                 size="sm"
                 className="w-full h-8 text-xs bg-orange-600 hover:bg-orange-700 border-0 transition-colors duration-100"
                 onClick={(e) => e.stopPropagation()}
+                disabled={!node.data.inputPrompt}
               >
                 <Play size={14} className="mr-2" />
                 Generate Audio

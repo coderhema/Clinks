@@ -64,14 +64,16 @@ export function WorkflowToolbar() {
   }
 
   const handleExportImage = () => {
-    // Mock export functionality - in real app would capture canvas
     const selectedNodeData = selectedNode ? nodes.find((n) => n.id === selectedNode.id) : null
-    if (selectedNodeData?.type === "image-gen" && selectedNodeData.data.preview) {
-      // Simulate downloading the generated image
+    if (selectedNodeData?.type === "image-generator" && selectedNodeData.data.content) {
+      // Create downloadable text file with the generated prompt
+      const blob = new Blob([selectedNodeData.data.content], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
       const link = document.createElement("a")
-      link.href = selectedNodeData.data.preview
-      link.download = "generated-image.png"
+      link.href = url
+      link.download = "generated-image-prompt.txt"
       link.click()
+      URL.revokeObjectURL(url)
     } else {
       alert("Please select an image generation node with generated content to export")
     }
@@ -79,8 +81,14 @@ export function WorkflowToolbar() {
 
   const handleExportVideo = () => {
     const selectedNodeData = selectedNode ? nodes.find((n) => n.id === selectedNode.id) : null
-    if (selectedNodeData?.type === "video-gen" && selectedNodeData.data.preview) {
-      alert("Video export functionality would download the generated video")
+    if (selectedNodeData?.type === "video-generator" && selectedNodeData.data.content) {
+      const blob = new Blob([selectedNodeData.data.content], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = "generated-video-prompt.txt"
+      link.click()
+      URL.revokeObjectURL(url)
     } else {
       alert("Please select a video generation node with generated content to export")
     }
@@ -88,8 +96,14 @@ export function WorkflowToolbar() {
 
   const handleExportAudio = () => {
     const selectedNodeData = selectedNode ? nodes.find((n) => n.id === selectedNode.id) : null
-    if (selectedNodeData?.type === "audio-gen" && selectedNodeData.data.preview) {
-      alert("Audio export functionality would download the generated audio")
+    if (selectedNodeData?.type === "audio-generator" && selectedNodeData.data.content) {
+      const blob = new Blob([selectedNodeData.data.content], { type: "text/plain" })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = "generated-audio-prompt.txt"
+      link.click()
+      URL.revokeObjectURL(url)
     } else {
       alert("Please select an audio generation node with generated content to export")
     }

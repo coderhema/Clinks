@@ -38,6 +38,13 @@ const nodeCategories = {
     color: "bg-gray-400",
     nodes: [
       {
+        id: "text-generator",
+        name: "Text Generator",
+        icon: Type,
+        description: "Generate AI text content",
+        color: "bg-gray-500",
+      },
+      {
         id: "image-generator",
         name: "Image Generator",
         icon: Palette,

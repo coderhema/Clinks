@@ -4,6 +4,12 @@ import { groq } from "@ai-sdk/groq"
 import { openai } from "@ai-sdk/openai"
 
 function getModelProvider(modelId: string) {
+  if (modelId.startsWith("openai/dall-e") || modelId.startsWith("stability-ai/") || modelId.startsWith("midjourney/")) {
+    return "openrouter-image"
+  }
+  if (modelId.startsWith("tts-")) {
+    return "openai-audio"
+  }
   if (
     modelId.startsWith("openai/") ||
     modelId.startsWith("anthropic/") ||
@@ -18,28 +24,24 @@ function getModelProvider(modelId: string) {
   return "groq"
 }
 
-function createModelInstance(modelId: string, provider: string) {
-  if (provider === "openrouter") {
-    // For OpenRouter, we need to use a custom configuration
-    const openrouterApiKey = process.env.OPENROUTER_API_KEY
-    if (!openrouterApiKey) {
-      // Try to get from localStorage settings (this won't work server-side, but we'll handle it)
-      throw new Error("OpenRouter API key not configured")
-    }
-
-    // Use OpenAI SDK with OpenRouter endpoint
-    return openai(modelId, {
-      baseURL: "https://openrouter.ai/api/v1",
-      apiKey: openrouterApiKey,
-    })
-  }
-
-  return groq(modelId)
-}
-
 export async function POST(request: NextRequest) {
   try {
     const { type, prompt, config = {}, nodeId } = await request.json()
+
+    if (!prompt || prompt.trim() === "") {
+      return NextResponse.json(
+        {
+          error: "Prompt is required",
+          log: {
+            nodeId,
+            timestamp: new Date().toISOString(),
+            status: "failed",
+            error: "Empty prompt provided",
+          },
+        },
+        { status: 400 },
+      )
+    }
 
     const modelId = config.model || "llama-3.1-8b-instant"
     const provider = getModelProvider(modelId)
@@ -54,14 +56,141 @@ export async function POST(request: NextRequest) {
       status: "starting",
     }
 
-    let modelInstance
-    try {
-      if (provider === "openrouter") {
-        const openrouterKey = request.headers.get("x-openrouter-key")
+    const startTime = Date.now()
+    let result, usage, generatedContent
+
+    if (type === "image" || type === "logo") {
+      try {
+        const openrouterKey = process.env.OPENROUTER_API_KEY
         if (!openrouterKey) {
           return NextResponse.json(
             {
-              error: "OpenRouter API key required. Please add it in Settings.",
+              error: "OpenRouter API key required for image generation. Please check your environment variables.",
+              log: { ...executionLog, status: "failed", error: "Missing OpenRouter API key" },
+            },
+            { status: 400 },
+          )
+        }
+
+        const imageModel = modelId || "openai/dall-e-3"
+
+        const imageResponse = await fetch("https://openrouter.ai/api/v1/images/generations", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openrouterKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
+            "X-Title": "AI Workflow Builder",
+          },
+          body: JSON.stringify({
+            model: imageModel,
+            prompt: prompt,
+            n: 1,
+            size: config.quality === "hd" ? "1024x1024" : "512x512",
+            quality: config.quality || "standard",
+          }),
+        })
+
+        if (!imageResponse.ok) {
+          const errorData = await imageResponse.json()
+          throw new Error(errorData.error?.message || "Image generation failed")
+        }
+
+        const imageData = await imageResponse.json()
+        const imageUrl = imageData.data?.[0]?.url
+
+        if (!imageUrl) {
+          throw new Error("No image URL returned from OpenRouter API")
+        }
+
+        const executionTime = Date.now() - startTime
+        return NextResponse.json({
+          result: imageUrl,
+          type: "image",
+          log: {
+            ...executionLog,
+            status: "completed",
+            executionTime,
+            resultLength: imageUrl.length,
+          },
+        })
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error: `Image generation failed: ${error.message}`,
+            log: { ...executionLog, status: "failed", error: error.message },
+          },
+          { status: 500 },
+        )
+      }
+    }
+
+    if (type === "audio") {
+      try {
+        const openaiKey = process.env.OPENAI_API_KEY
+        if (!openaiKey) {
+          return NextResponse.json(
+            {
+              error:
+                "OpenAI API key required for audio generation. Please add OPENAI_API_KEY to environment variables.",
+              log: { ...executionLog, status: "failed", error: "Missing OpenAI API key" },
+            },
+            { status: 400 },
+          )
+        }
+
+        const audioResponse = await fetch("https://api.openai.com/v1/audio/speech", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openaiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: modelId || "tts-1",
+            input: prompt,
+            voice: "alloy",
+          }),
+        })
+
+        if (!audioResponse.ok) {
+          const errorData = await audioResponse.json()
+          throw new Error(errorData.error?.message || "Audio generation failed")
+        }
+
+        const audioBuffer = await audioResponse.arrayBuffer()
+        const audioBase64 = Buffer.from(audioBuffer).toString("base64")
+        const audioUrl = `data:audio/mpeg;base64,${audioBase64}`
+
+        const executionTime = Date.now() - startTime
+        return NextResponse.json({
+          result: audioUrl,
+          type: "audio",
+          log: {
+            ...executionLog,
+            status: "completed",
+            executionTime,
+            resultLength: audioBuffer.byteLength,
+          },
+        })
+      } catch (error) {
+        return NextResponse.json(
+          {
+            error: `Audio generation failed: ${error.message}`,
+            log: { ...executionLog, status: "failed", error: error.message },
+          },
+          { status: 500 },
+        )
+      }
+    }
+
+    let modelInstance
+    try {
+      if (provider === "openrouter") {
+        const openrouterKey = process.env.OPENROUTER_API_KEY
+        if (!openrouterKey) {
+          return NextResponse.json(
+            {
+              error: "OpenRouter API key required. Please add OPENROUTER_API_KEY to environment variables.",
               log: { ...executionLog, status: "failed", error: "Missing API key" },
             },
             { status: 400 },
@@ -72,6 +201,14 @@ export async function POST(request: NextRequest) {
           baseURL: "https://openrouter.ai/api/v1",
           apiKey: openrouterKey,
         })
+      } else if (provider === "openrouter-image") {
+        return NextResponse.json(
+          {
+            error: "Image generation should be handled in the image/logo section above",
+            log: { ...executionLog, status: "failed", error: "Invalid routing" },
+          },
+          { status: 400 },
+        )
       } else {
         modelInstance = groq(modelId)
       }
@@ -84,9 +221,6 @@ export async function POST(request: NextRequest) {
         { status: 400 },
       )
     }
-
-    const startTime = Date.now()
-    let result, usage, generatedContent
 
     switch (type) {
       case "text":
@@ -102,50 +236,47 @@ export async function POST(request: NextRequest) {
         break
 
       case "image-prompt":
-        const imageResult = await generateText({
+        const imagePromptResult = await generateText({
           model: modelInstance,
           prompt: `Create a detailed, artistic image generation prompt based on: "${prompt}". Include style, lighting, composition, and artistic details. Keep it under 200 words.`,
           maxTokens: 200,
           temperature: 0.8,
         })
-        result = imageResult.text
-        usage = imageResult.usage
+        result = imagePromptResult.text
+        usage = imagePromptResult.usage
         generatedContent = {
           result,
           type: "image-prompt",
-          mockImage: `/placeholder.svg?height=400&width=400&query=${encodeURIComponent(result.slice(0, 50))}`,
         }
         break
 
       case "video-prompt":
-        const videoResult = await generateText({
+        const videoPromptResult = await generateText({
           model: modelInstance,
           prompt: `Create a detailed video generation prompt based on: "${prompt}". Include camera movements, scene descriptions, timing, and visual effects. Keep it under 150 words.`,
           maxTokens: 150,
           temperature: 0.8,
         })
-        result = videoResult.text
-        usage = videoResult.usage
+        result = videoPromptResult.text
+        usage = videoPromptResult.usage
         generatedContent = {
           result,
           type: "video-prompt",
-          mockVideo: `/placeholder.svg?height=300&width=400&query=video+${encodeURIComponent(result.slice(0, 30))}`,
         }
         break
 
       case "audio-prompt":
-        const audioResult = await generateText({
+        const audioPromptResult = await generateText({
           model: modelInstance,
           prompt: `Create a detailed audio generation prompt based on: "${prompt}". Include genre, instruments, mood, tempo, and style. Keep it under 100 words.`,
           maxTokens: 100,
           temperature: 0.8,
         })
-        result = audioResult.text
-        usage = audioResult.usage
+        result = audioPromptResult.text
+        usage = audioPromptResult.usage
         generatedContent = {
           result,
           type: "audio-prompt",
-          mockAudio: "Generated audio description: " + result,
         }
         break
 

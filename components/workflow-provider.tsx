@@ -63,32 +63,16 @@ interface WorkflowContextType {
   isExecuting: boolean
   executionLogs: any[]
   clearLogs: () => void
+  updateConnections: (
+    connections: Array<{ source: string; target: string; sourceHandle: string; targetHandle: string }>,
+  ) => void
+  updateNodeData: (nodeId: string, data: any) => void
 }
 
 const WorkflowContext = createContext<WorkflowContextType | null>(null)
 
 export function WorkflowProvider({ children }: { children: React.ReactNode }) {
-  const [nodes, setNodes] = useState<WorkflowNode[]>([
-    {
-      id: "demo-1",
-      type: "text-input",
-      position: { x: 100, y: 100 },
-      data: {
-        label: "Text Input",
-        content: "A beautiful sunset over mountains",
-        config: { model: "llama-3.1-8b-instant" },
-      },
-    },
-    {
-      id: "demo-2",
-      type: "image-gen",
-      position: { x: 400, y: 100 },
-      data: {
-        label: "Image Generator",
-        config: { model: "llama-3.1-8b-instant" },
-      },
-    },
-  ])
+  const [nodes, setNodes] = useState<WorkflowNode[]>([])
   const [connections, setConnections] = useState<WorkflowConnection[]>([])
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null)
   const [isExecuting, setIsExecuting] = useState(false)
@@ -143,13 +127,48 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setConnections((prev) => prev.filter((conn) => conn.id !== id))
   }, [])
 
+  const updateConnections = useCallback(
+    (drawflowConnections: Array<{ source: string; target: string; sourceHandle: string; targetHandle: string }>) => {
+      const newConnections: WorkflowConnection[] = drawflowConnections.map((conn, index) => ({
+        id: `conn-${Date.now()}-${index}`,
+        source: conn.source,
+        target: conn.target,
+        sourceHandle: conn.sourceHandle,
+        targetHandle: conn.targetHandle,
+      }))
+      setConnections(newConnections)
+    },
+    [],
+  )
+
+  const updateNodeData = useCallback((nodeId: string, data: any) => {
+    setNodes((prev) =>
+      prev.map((node) => {
+        if (node.id === nodeId) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              content: data.input_0 || node.data.content, // Use first input as content
+              config: {
+                ...node.data.config,
+                model: data.model_0 || node.data.config?.model, // Use first model selection
+              },
+            },
+          }
+        }
+        return node
+      }),
+    )
+  }, [])
+
   const executeWorkflow = useCallback(async () => {
     setIsExecuting(true)
     setExecutionLogs([]) // Clear previous logs
 
     try {
-      // Sort nodes by execution order (based on connections)
       const executionOrder = getExecutionOrder(nodes, connections)
+      const nodeResults = new Map<string, any>() // Store results for data flow
 
       for (const nodeId of executionOrder) {
         const node = nodes.find((n) => n.id === nodeId)
@@ -164,8 +183,10 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         }
         setExecutionLogs((prev) => [...prev, startLog])
 
-        // Execute node based on type
-        await executeNode(node)
+        const result = await executeNode(node, nodeResults, connections)
+        if (result) {
+          nodeResults.set(nodeId, result)
+        }
       }
     } catch (error) {
       console.error("Workflow execution failed:", error)
@@ -183,22 +204,85 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     }
   }, [nodes, connections])
 
-  const executeNode = async (node: WorkflowNode) => {
+  const executeNode = async (node: WorkflowNode, nodeResults: Map<string, any>, connections: WorkflowConnection[]) => {
     try {
+      let inputData: any = null
       let prompt = node.data.content || ""
 
-      // Get input from connected nodes
       const inputConnections = connections.filter((conn) => conn.target === node.id)
-      for (const conn of inputConnections) {
-        const sourceNode = nodes.find((n) => n.id === conn.source)
-        if (sourceNode?.data.content) {
-          prompt = sourceNode.data.content
+
+      if (inputConnections.length > 0) {
+        // Get input from connected nodes
+        const sourceConnection = inputConnections[0] // For now, take first connection
+        const sourceResult = nodeResults.get(sourceConnection.source)
+
+        if (sourceResult) {
+          inputData = sourceResult
+          // Use the output from connected node as input
+          if (typeof sourceResult === "string") {
+            prompt = sourceResult
+          } else if (sourceResult.content) {
+            prompt = sourceResult.content
+          } else if (sourceResult.text) {
+            prompt = sourceResult.text
+          }
+
+          const previewElement = document.querySelector(`[data-node="${node.id}"] .input-preview`)
+          if (previewElement) {
+            previewElement.textContent = `Input: ${prompt.substring(0, 50)}${prompt.length > 50 ? "..." : ""}`
+          }
         }
+      }
+
+      if (node.type === "text-input") {
+        const textContent = node.data.content || prompt
+        if (!textContent || textContent.trim() === "") {
+          const errorLog = {
+            nodeId: node.id,
+            timestamp: new Date().toISOString(),
+            status: "failed",
+            error: "No text content provided",
+          }
+          setExecutionLogs((prev) => [...prev, errorLog])
+          return null
+        }
+
+        // Text input nodes just pass through their content
+        const successLog = {
+          nodeId: node.id,
+          timestamp: new Date().toISOString(),
+          status: "completed",
+          result: textContent,
+          inputTokens: textContent.split(" ").length,
+        }
+        setExecutionLogs((prev) => [...prev, successLog])
+
+        updateNode(node.id, {
+          data: {
+            ...node.data,
+            content: textContent,
+            preview: textContent.substring(0, 100) + (textContent.length > 100 ? "..." : ""),
+          },
+        })
+
+        return textContent
+      }
+
+      if (!prompt || prompt.trim() === "") {
+        const errorLog = {
+          nodeId: node.id,
+          timestamp: new Date().toISOString(),
+          status: "failed",
+          error: inputConnections.length > 0 ? "No input received from connected node" : "No input prompt provided",
+        }
+        setExecutionLogs((prev) => [...prev, errorLog])
+        return null
       }
 
       let generationType = ""
       switch (node.type) {
         case "image-generator":
+        case "logo-generator":
           generationType = "image-prompt"
           break
         case "video-generator":
@@ -207,14 +291,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         case "audio-generator":
           generationType = "audio-prompt"
           break
-        case "logo-generator":
-          generationType = "image-prompt"
-          break
-        case "text-input":
-          generationType = "text"
-          break
         default:
-          return
+          generationType = "text"
       }
 
       const response = await fetch("/api/generate", {
@@ -229,6 +307,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
           type: generationType,
           prompt,
           nodeId: node.id,
+          inputData, // Pass the input data for context
           config: {
             model: node.data.config?.model || "llama-3.1-8b-instant",
             maxTokens: node.data.config?.maxTokens || 500,
@@ -245,14 +324,19 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         setExecutionLogs((prev) => [...prev, result.log])
       }
 
-      // Update node with result
-      updateNode(node.id, {
-        data: {
-          ...node.data,
-          content: result.result,
-          preview: result.mockImage || result.mockVideo || result.mockAudio || result.result,
-        },
-      })
+      if (response.ok && result.result) {
+        updateNode(node.id, {
+          data: {
+            ...node.data,
+            content: result.result,
+            preview: result.result,
+          },
+        })
+
+        return result.result // Return result for next nodes in chain
+      } else {
+        throw new Error(result.error || "Generation failed")
+      }
     } catch (error) {
       console.error(`Failed to execute node ${node.id}:`, error)
       setExecutionLogs((prev) => [
@@ -264,26 +348,48 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
           error: error.message,
         },
       ])
+      return null
     }
   }
 
   const getExecutionOrder = (nodes: WorkflowNode[], connections: WorkflowConnection[]): string[] => {
-    // Simple topological sort for execution order
     const visited = new Set<string>()
+    const visiting = new Set<string>()
     const order: string[] = []
 
     const visit = (nodeId: string) => {
+      if (visiting.has(nodeId)) {
+        throw new Error(`Circular dependency detected involving node ${nodeId}`)
+      }
       if (visited.has(nodeId)) return
-      visited.add(nodeId)
 
-      // Visit dependencies first
+      visiting.add(nodeId)
+
+      // Visit all dependencies (input nodes) first
       const dependencies = connections.filter((conn) => conn.target === nodeId).map((conn) => conn.source)
 
       dependencies.forEach(visit)
+
+      visiting.delete(nodeId)
+      visited.add(nodeId)
       order.push(nodeId)
     }
 
-    nodes.forEach((node) => visit(node.id))
+    // Start with nodes that have no inputs (source nodes)
+    const sourceNodes = nodes.filter((node) => !connections.some((conn) => conn.target === node.id))
+
+    // If no source nodes, start with all nodes
+    const startNodes = sourceNodes.length > 0 ? sourceNodes : nodes
+
+    startNodes.forEach((node) => visit(node.id))
+
+    // Visit any remaining unvisited nodes
+    nodes.forEach((node) => {
+      if (!visited.has(node.id)) {
+        visit(node.id)
+      }
+    })
+
     return order
   }
 
@@ -341,6 +447,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         isExecuting,
         executionLogs,
         clearLogs,
+        updateConnections,
+        updateNodeData,
       }}
     >
       {children}

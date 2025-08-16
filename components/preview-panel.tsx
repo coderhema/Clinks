@@ -16,7 +16,7 @@ function getPreviewContent(node: any, executionLogs: any[]) {
       <div className="space-y-2">
         <h4 className="text-white text-sm font-semibold">Content</h4>
         <div className="bg-neutral-900 p-3 rounded text-sm text-gray-300">
-          {node.data.content || node.data.preview || "No content generated yet"}
+          {node.data.content || node.data.preview || "No content generated yet - run the workflow to generate content"}
         </div>
       </div>
 
@@ -25,7 +25,10 @@ function getPreviewContent(node: any, executionLogs: any[]) {
         <h4 className="text-white text-sm font-semibold">Configuration</h4>
         <div className="bg-neutral-900 p-3 rounded text-xs text-gray-400 space-y-1">
           <div>
-            Model: <span className="text-white">{node.data.config?.model || "Default"}</span>
+            Model: <span className="text-white">{node.data.config?.model || "llama-3.1-8b-instant"}</span>
+          </div>
+          <div>
+            Provider: <span className="text-white">{node.data.config?.provider || "groq"}</span>
           </div>
           <div>
             Temperature: <span className="text-white">{node.data.config?.temperature || 0.7}</span>
@@ -66,22 +69,12 @@ function getPreviewContent(node: any, executionLogs: any[]) {
 
             {latestLog.usage && (
               <div className="text-gray-400">
-                Tokens: <span className="text-white">{latestLog.usage.totalTokens}</span>({latestLog.usage.promptTokens}{" "}
-                prompt + {latestLog.usage.completionTokens} completion)
+                Tokens: <span className="text-white">{latestLog.usage.totalTokens}</span> (
+                {latestLog.usage.promptTokens} prompt + {latestLog.usage.completionTokens} completion)
               </div>
             )}
 
             {latestLog.error && <div className="text-red-400 text-xs">Error: {latestLog.error}</div>}
-          </div>
-        </div>
-      )}
-
-      {/* Preview Media */}
-      {node.data.preview && node.data.preview.includes("placeholder.svg") && (
-        <div className="space-y-2">
-          <h4 className="text-white text-sm font-semibold">Generated Preview</h4>
-          <div className="bg-neutral-900 p-2 rounded">
-            <img src={node.data.preview || "/placeholder.svg"} alt="Generated content" className="w-full rounded" />
           </div>
         </div>
       )}
@@ -90,7 +83,7 @@ function getPreviewContent(node: any, executionLogs: any[]) {
 }
 
 export function PreviewPanel() {
-  const { selectedNode, nodes, setSelectedNode, executionLogs, isExecuting } = useWorkflow()
+  const { selectedNode, nodes, setSelectedNode, executionLogs, isExecuting, clearLogs } = useWorkflow()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState<"preview" | "logs">("preview")
 
@@ -115,7 +108,7 @@ export function PreviewPanel() {
       {/* Header */}
       <div className="p-4 border-b border-white/20">
         <div className="flex items-center justify-between">
-          <h2 className="text-white font-semibold">Workflow Logs</h2>
+          <h2 className="text-white font-semibold">Workflow Panel</h2>
           <div className="flex gap-1">
             {isExecuting && <Zap className="h-4 w-4 text-yellow-500 animate-pulse" />}
             <Button
@@ -154,6 +147,16 @@ export function PreviewPanel() {
           >
             Logs ({executionLogs.length})
           </Button>
+          {executionLogs.length > 0 && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs px-2 py-1 h-7 text-red-400 hover:text-red-300"
+              onClick={clearLogs}
+            >
+              Clear
+            </Button>
+          )}
         </div>
 
         {selectedNodeData && <p className="text-gray-500 text-sm mt-2">{selectedNodeData.data.label}</p>}
@@ -170,13 +173,16 @@ export function PreviewPanel() {
         ) : (
           <div className="space-y-3">
             {executionLogs.length === 0 ? (
-              <p className="text-gray-500 text-sm text-center">No execution logs yet</p>
+              <p className="text-gray-500 text-sm text-center">No execution logs yet - run the workflow to see logs</p>
             ) : (
               executionLogs
                 .slice()
                 .reverse()
                 .map((log, index) => (
-                  <div key={index} className="bg-neutral-900 p-3 rounded text-xs space-y-2">
+                  <div
+                    key={index}
+                    className="bg-neutral-900 p-3 rounded text-xs space-y-2 animate-in slide-in-from-top-2"
+                  >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {log.status === "completed" && <CheckCircle className="h-3 w-3 text-green-500" />}
