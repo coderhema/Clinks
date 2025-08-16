@@ -3,41 +3,80 @@ import { generateText } from "ai"
 import { groq } from "@ai-sdk/groq"
 import { openai } from "@ai-sdk/openai"
 
+function getModelProvider(modelId: string) {
+  if (
+    modelId.startsWith("openai/") ||
+    modelId.startsWith("anthropic/") ||
+    modelId.startsWith("google/") ||
+    modelId.startsWith("meta-llama/") ||
+    modelId.startsWith("mistralai/") ||
+    modelId.startsWith("cohere/") ||
+    modelId.startsWith("perplexity/")
+  ) {
+    return "openrouter"
+  }
+  return "groq"
+}
+
+function createModelInstance(modelId: string, provider: string) {
+  if (provider === "openrouter") {
+    // For OpenRouter, we need to use a custom configuration
+    const openrouterApiKey = process.env.OPENROUTER_API_KEY
+    if (!openrouterApiKey) {
+      // Try to get from localStorage settings (this won't work server-side, but we'll handle it)
+      throw new Error("OpenRouter API key not configured")
+    }
+
+    // Use OpenAI SDK with OpenRouter endpoint
+    return openai(modelId, {
+      baseURL: "https://openrouter.ai/api/v1",
+      apiKey: openrouterApiKey,
+    })
+  }
+
+  return groq(modelId)
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { type, prompt, config = {} } = await request.json()
 
-    const provider = config.provider || "groq"
-    const apiKey = config.apiKey
+    const modelId = config.model || "llama-3.1-8b-instant"
+    const provider = getModelProvider(modelId)
 
-    let model
-    switch (provider) {
-      case "groq":
-        model = groq("llama-3.1-70b-versatile")
-        break
-      case "openrouter":
-        if (!apiKey) {
-          return NextResponse.json({ error: "OpenRouter API key required" }, { status: 400 })
+    let modelInstance
+    try {
+      if (provider === "openrouter") {
+        const openrouterKey = request.headers.get("x-openrouter-key")
+        if (!openrouterKey) {
+          return NextResponse.json(
+            {
+              error: "OpenRouter API key required. Please add it in Settings.",
+            },
+            { status: 400 },
+          )
         }
-        model = openai("meta-llama/llama-3.1-70b-instruct:free", {
+
+        modelInstance = openai(modelId, {
           baseURL: "https://openrouter.ai/api/v1",
-          apiKey: apiKey,
+          apiKey: openrouterKey,
         })
-        break
-      case "openai":
-        if (!apiKey) {
-          return NextResponse.json({ error: "OpenAI API key required" }, { status: 400 })
-        }
-        model = openai("gpt-3.5-turbo", { apiKey })
-        break
-      default:
-        model = groq("llama-3.1-70b-versatile")
+      } else {
+        modelInstance = groq(modelId)
+      }
+    } catch (error) {
+      return NextResponse.json(
+        {
+          error: `Failed to initialize ${provider} model: ${modelId}`,
+        },
+        { status: 400 },
+      )
     }
 
     switch (type) {
       case "text":
         const { text } = await generateText({
-          model: model,
+          model: modelInstance,
           prompt: prompt,
           maxTokens: config.maxTokens || 500,
           temperature: config.temperature || 0.7,
@@ -45,8 +84,9 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ result: text, type: "text" })
 
       case "image-prompt":
+        // Generate enhanced image prompt
         const { text: enhancedPrompt } = await generateText({
-          model: model,
+          model: modelInstance,
           prompt: `Create a detailed, artistic image generation prompt based on: "${prompt}". Include style, lighting, composition, and artistic details. Keep it under 200 words.`,
           maxTokens: 200,
           temperature: 0.8,
@@ -59,7 +99,7 @@ export async function POST(request: NextRequest) {
 
       case "video-prompt":
         const { text: videoPrompt } = await generateText({
-          model: model,
+          model: modelInstance,
           prompt: `Create a detailed video generation prompt based on: "${prompt}". Include camera movements, scene descriptions, timing, and visual effects. Keep it under 150 words.`,
           maxTokens: 150,
           temperature: 0.8,
@@ -72,7 +112,7 @@ export async function POST(request: NextRequest) {
 
       case "audio-prompt":
         const { text: audioPrompt } = await generateText({
-          model: model,
+          model: modelInstance,
           prompt: `Create a detailed audio generation prompt based on: "${prompt}". Include genre, instruments, mood, tempo, and style. Keep it under 100 words.`,
           maxTokens: 100,
           temperature: 0.8,
@@ -88,6 +128,11 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     console.error("Generation error:", error)
-    return NextResponse.json({ error: "Generation failed" }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Generation failed",
+      },
+      { status: 500 },
+    )
   }
 }

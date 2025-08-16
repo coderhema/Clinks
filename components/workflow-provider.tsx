@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useCallback } from "react"
-import { useNodeExecutionEngine } from "./node-execution-engine"
 
 export interface WorkflowNode {
   id: string
@@ -52,8 +51,6 @@ interface WorkflowContextType {
   addReactFlowNode: (type: string, label: string, position?: { x: number; y: number }) => void
   executeWorkflow: () => Promise<void>
   isExecuting: boolean
-  executionResults: any[]
-  getNodeStatus: (nodeId: string) => string
 }
 
 const WorkflowContext = createContext<WorkflowContextType | null>(null)
@@ -64,24 +61,37 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       id: "demo-1",
       type: "text-input",
       position: { x: 100, y: 100 },
-      data: { label: "Text Input", content: "A beautiful sunset over mountains" },
+      data: {
+        label: "Text Input",
+        content: "A beautiful sunset over mountains",
+        config: { model: "llama-3.1-8b-instant" },
+      },
     },
     {
       id: "demo-2",
       type: "image-gen",
       position: { x: 400, y: 100 },
-      data: { label: "Image Generator" },
+      data: {
+        label: "Image Generator",
+        config: { model: "llama-3.1-8b-instant" },
+      },
     },
   ])
   const [connections, setConnections] = useState<WorkflowConnection[]>([])
   const [selectedNode, setSelectedNode] = useState<WorkflowNode | null>(null)
-
-  const { executeWorkflow: executeWithEngine, executionResults, isExecuting, getNodeStatus } = useNodeExecutionEngine()
+  const [isExecuting, setIsExecuting] = useState(false)
 
   const addNode = useCallback((node: Omit<WorkflowNode, "id">) => {
     const newNode: WorkflowNode = {
       ...node,
       id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      data: {
+        ...node.data,
+        config: {
+          model: "llama-3.1-8b-instant", // Default model
+          ...node.data.config,
+        },
+      },
     }
     setNodes((prev) => [...prev, newNode])
   }, [])
@@ -91,7 +101,10 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type: type as WorkflowNode["type"],
       position,
-      data: { label },
+      data: {
+        label,
+        config: { model: "llama-3.1-8b-instant" }, // Default model
+      },
     }
     setNodes((prev) => [...prev, newNode])
   }, [])
@@ -118,36 +131,105 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const executeWorkflow = useCallback(async () => {
+    setIsExecuting(true)
     try {
-      // Get settings from localStorage
-      const savedSettings = localStorage.getItem("workflow-settings")
-      const settings = savedSettings
-        ? JSON.parse(savedSettings)
-        : {
-            apiProvider: "groq",
-            temperature: 0.7,
-            maxTokens: 500,
-            apiKeys: {},
-          }
+      // Sort nodes by execution order (based on connections)
+      const executionOrder = getExecutionOrder(nodes, connections)
 
-      await executeWithEngine(nodes, connections, settings)
+      for (const nodeId of executionOrder) {
+        const node = nodes.find((n) => n.id === nodeId)
+        if (!node) continue
 
-      // Update nodes with execution results
-      executionResults.forEach((result) => {
-        if (result.status === "completed" && result.result) {
-          updateNode(result.nodeId, {
-            data: {
-              ...nodes.find((n) => n.id === result.nodeId)?.data,
-              content: result.result.content,
-              preview: result.result.preview,
-            },
-          })
-        }
-      })
+        // Execute node based on type
+        await executeNode(node)
+      }
     } catch (error) {
       console.error("Workflow execution failed:", error)
+    } finally {
+      setIsExecuting(false)
     }
-  }, [nodes, connections, executeWithEngine, executionResults, updateNode])
+  }, [nodes, connections])
+
+  const executeNode = async (node: WorkflowNode) => {
+    try {
+      let prompt = node.data.content || ""
+
+      // Get input from connected nodes
+      const inputConnections = connections.filter((conn) => conn.target === node.id)
+      for (const conn of inputConnections) {
+        const sourceNode = nodes.find((n) => n.id === conn.source)
+        if (sourceNode?.data.content) {
+          prompt = sourceNode.data.content
+        }
+      }
+
+      let generationType = ""
+      switch (node.type) {
+        case "image-gen":
+          generationType = "image-prompt"
+          break
+        case "video-gen":
+          generationType = "video-prompt"
+          break
+        case "audio-gen":
+          generationType = "audio-prompt"
+          break
+        case "text-input":
+          generationType = "text"
+          break
+        default:
+          return
+      }
+
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: generationType,
+          prompt,
+          config: {
+            model: node.data.config?.model || "llama-3.1-8b-instant",
+            maxTokens: node.data.config?.maxTokens || 500,
+            temperature: node.data.config?.temperature || 0.7,
+            ...node.data.config,
+          },
+        }),
+      })
+
+      const result = await response.json()
+
+      // Update node with result
+      updateNode(node.id, {
+        data: {
+          ...node.data,
+          content: result.result,
+          preview: result.mockImage || result.mockVideo || result.mockAudio || result.result,
+        },
+      })
+    } catch (error) {
+      console.error(`Failed to execute node ${node.id}:`, error)
+    }
+  }
+
+  const getExecutionOrder = (nodes: WorkflowNode[], connections: WorkflowConnection[]): string[] => {
+    // Simple topological sort for execution order
+    const visited = new Set<string>()
+    const order: string[] = []
+
+    const visit = (nodeId: string) => {
+      if (visited.has(nodeId)) return
+      visited.add(nodeId)
+
+      // Visit dependencies first
+      const dependencies = connections.filter((conn) => conn.target === nodeId).map((conn) => conn.source)
+
+      dependencies.forEach(visit)
+      order.push(nodeId)
+    }
+
+    nodes.forEach((node) => visit(node.id))
+    return order
+  }
 
   const exportWorkflow = useCallback(
     (name = "Untitled Workflow"): WorkflowData => {
@@ -197,8 +279,6 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         addReactFlowNode,
         executeWorkflow,
         isExecuting,
-        executionResults,
-        getNodeStatus,
       }}
     >
       {children}

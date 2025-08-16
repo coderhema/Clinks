@@ -7,15 +7,13 @@ import { WorkflowNode } from "./workflow-node"
 import { ConnectionLine } from "./connection-line"
 
 export function WorkflowCanvas() {
-  const { nodes, connections, addNode, deleteConnection } = useWorkflow()
+  const { nodes, connections, addNode } = useWorkflow()
   const canvasRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
   const [tempConnection, setTempConnection] = useState<{
     from: { x: number; y: number }
     to: { x: number; y: number }
-    nodeId: string
-    handleType: string
   } | null>(null)
 
   useEffect(() => {
@@ -23,8 +21,6 @@ export function WorkflowCanvas() {
       setTempConnection({
         from: e.detail.position,
         to: e.detail.position,
-        nodeId: e.detail.nodeId,
-        handleType: e.detail.handleType || "data",
       })
     }
 
@@ -76,26 +72,6 @@ export function WorkflowCanvas() {
     [addNode],
   )
 
-  const renderConnections = () => {
-    return connections.map((connection) => {
-      const sourceNode = nodes.find((n) => n.id === connection.source)
-      const targetNode = nodes.find((n) => n.id === connection.target)
-
-      if (!sourceNode || !targetNode) return null
-
-      return (
-        <ConnectionLine
-          key={connection.id}
-          connectionId={connection.id}
-          from={{ x: sourceNode.position.x + 200, y: sourceNode.position.y + 40 }}
-          to={{ x: targetNode.position.x, y: targetNode.position.y + 40 }}
-          onDelete={deleteConnection}
-          animated={false}
-        />
-      )
-    })
-  }
-
   return (
     <div className="flex-1 relative overflow-hidden">
       {/* Canvas Area */}
@@ -112,11 +88,22 @@ export function WorkflowCanvas() {
       >
         {/* Render connections */}
         <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-          {renderConnections()}
+          {connections.map((connection) => {
+            const sourceNode = nodes.find((n) => n.id === connection.source)
+            const targetNode = nodes.find((n) => n.id === connection.target)
 
-          {tempConnection && (
-            <ConnectionLine from={tempConnection.from} to={tempConnection.to} temporary={true} animated={true} />
-          )}
+            if (!sourceNode || !targetNode) return null
+
+            return (
+              <ConnectionLine
+                key={connection.id}
+                from={{ x: sourceNode.position.x + 150, y: sourceNode.position.y + 40 }}
+                to={{ x: targetNode.position.x, y: targetNode.position.y + 40 }}
+              />
+            )
+          })}
+
+          {tempConnection && <ConnectionLine from={tempConnection.from} to={tempConnection.to} temporary={true} />}
         </svg>
 
         {/* Render nodes */}
@@ -131,7 +118,6 @@ export function WorkflowCanvas() {
               <p className="text-lg mb-2">Double-click to add a node</p>
               <p className="text-sm">Or drag components from the left panel</p>
               <p className="text-xs mt-2">Drag from output (right) to input (left) to connect nodes</p>
-              <p className="text-xs mt-1">Hover over connections to delete them</p>
             </div>
           </div>
         )}

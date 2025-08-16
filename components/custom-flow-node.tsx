@@ -5,16 +5,42 @@ import type React from "react"
 import { useState, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { SearchableSelect } from "./searchable-select"
 import { ImageIcon, Video, Music, Type, Palette, Play, Settings, Upload } from "lucide-react"
 
 const nodeIcons = {
   "text-input": Type,
   "image-input": ImageIcon,
-  "image-gen": Palette,
-  "video-gen": Video,
-  "audio-gen": Music,
+  "image-generator": Palette, // Updated from "image-gen" to "image-generator"
+  "video-generator": Video, // Updated from "video-gen" to "video-generator"
+  "audio-generator": Music, // Updated from "audio-gen" to "audio-generator"
+  "logo-generator": Palette, // Added new logo generator type
   output: Upload,
 }
+
+// Available models from both Groq and OpenRouter
+const availableModels = [
+  // Groq Models
+  { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B (Fast)", provider: "Groq" },
+  { value: "llama3-70b-8192", label: "Llama 3 70B", provider: "Groq" },
+  { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B", provider: "Groq" },
+  { value: "gemma2-9b-it", label: "Gemma 2 9B", provider: "Groq" },
+  { value: "llama3-groq-70b-8192-tool-use-preview", label: "Llama 3 Groq 70B Tool Use", provider: "Groq" },
+
+  // OpenRouter Models (Popular ones)
+  { value: "openai/gpt-4o", label: "GPT-4o", provider: "OpenAI" },
+  { value: "openai/gpt-4o-mini", label: "GPT-4o Mini", provider: "OpenAI" },
+  { value: "anthropic/claude-3.5-sonnet", label: "Claude 3.5 Sonnet", provider: "Anthropic" },
+  { value: "anthropic/claude-3-haiku", label: "Claude 3 Haiku", provider: "Anthropic" },
+  { value: "google/gemini-pro-1.5", label: "Gemini Pro 1.5", provider: "Google" },
+  { value: "google/gemini-flash-1.5", label: "Gemini Flash 1.5", provider: "Google" },
+  { value: "meta-llama/llama-3.1-405b-instruct", label: "Llama 3.1 405B", provider: "Meta" },
+  { value: "meta-llama/llama-3.1-70b-instruct", label: "Llama 3.1 70B", provider: "Meta" },
+  { value: "mistralai/mixtral-8x22b-instruct", label: "Mixtral 8x22B", provider: "Mistral" },
+  { value: "mistralai/mistral-large", label: "Mistral Large", provider: "Mistral" },
+  { value: "cohere/command-r-plus", label: "Command R+", provider: "Cohere" },
+  { value: "perplexity/llama-3.1-sonar-large-128k-online", label: "Sonar Large Online", provider: "Perplexity" },
+]
 
 interface CustomFlowNodeProps {
   node: any
@@ -24,6 +50,7 @@ interface CustomFlowNodeProps {
   onSelect: () => void
   onStartConnection: (nodeId: string, x: number, y: number) => void
   onCompleteConnection: (nodeId: string, x: number, y: number) => void
+  onUpdateNode: (id: string, updates: any) => void
 }
 
 export function CustomFlowNode({
@@ -34,6 +61,7 @@ export function CustomFlowNode({
   onSelect,
   onStartConnection,
   onCompleteConnection,
+  onUpdateNode,
 }: CustomFlowNodeProps) {
   const [isDragging, setIsDragging] = useState(false)
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
@@ -79,6 +107,36 @@ export function CustomFlowNode({
     [node.id, onCompleteConnection],
   )
 
+  const handleModelChange = useCallback(
+    (modelId: string) => {
+      onUpdateNode(node.id, {
+        data: {
+          ...node.data,
+          config: {
+            ...node.data.config,
+            model: modelId,
+          },
+        },
+      })
+    },
+    [node.id, node.data, onUpdateNode],
+  )
+
+  const handleContentChange = useCallback(
+    (content: string) => {
+      onUpdateNode(node.id, {
+        data: {
+          ...node.data,
+          content,
+        },
+      })
+    },
+    [node.id, node.data, onUpdateNode],
+  )
+
+  const selectedModel = node.data.config?.model || "llama-3.1-8b-instant"
+  const selectedModelInfo = availableModels.find((m) => m.value === selectedModel)
+
   return (
     <div
       ref={nodeRef}
@@ -95,14 +153,14 @@ export function CustomFlowNode({
     >
       <div
         className={`
-        min-w-[280px] bg-neutral-900 border border-neutral-700 text-white
+        min-w-[300px] bg-neutral-900 border border-neutral-700 text-white
         ${isSelected ? "ring-1 ring-blue-400" : ""}
         transition-all duration-100 hover:border-neutral-600 shadow-xl
       `}
       >
         {/* Input Handle */}
         <div
-          className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-neutral-600 border border-neutral-500 cursor-pointer hover:bg-neutral-500 transition-all duration-100"
+          className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-blue-600 border border-blue-500 cursor-pointer hover:bg-blue-500 transition-all duration-100"
           onClick={handleInputClick}
         />
 
@@ -117,16 +175,40 @@ export function CustomFlowNode({
 
         {/* Node Content */}
         <div className="p-4 space-y-3">
+          {/* Model Selection for AI Generation Nodes */}
+          {(node.type === "image-generator" ||
+            node.type === "video-generator" ||
+            node.type === "audio-generator" ||
+            node.type === "logo-generator" ||
+            node.type === "text-input") && (
+            <div className="space-y-2">
+              <label className="text-xs text-neutral-400 font-medium">AI Model</label>
+              <SearchableSelect
+                options={availableModels}
+                value={selectedModel}
+                onChange={handleModelChange}
+                placeholder="Select AI model..."
+                className="w-full"
+              />
+              {selectedModelInfo && (
+                <div className="text-xs text-neutral-500">
+                  Selected: {selectedModelInfo.label} ({selectedModelInfo.provider})
+                </div>
+              )}
+            </div>
+          )}
+
           {node.type === "text-input" && (
             <textarea
               className="w-full h-20 bg-neutral-900 border border-neutral-600 text-white text-sm p-3 resize-none focus:border-neutral-500 focus:outline-none transition-colors"
               placeholder="Enter your prompt..."
               defaultValue={node.data.content}
+              onChange={(e) => handleContentChange(e.target.value)}
               onClick={(e) => e.stopPropagation()}
             />
           )}
 
-          {(node.type === "image-gen" || node.type === "video-gen") && (
+          {(node.type === "image-generator" || node.type === "video-generator" || node.type === "logo-generator") && (
             <div className="space-y-3">
               <div className="w-full h-32 bg-neutral-800 border border-neutral-600 flex items-center justify-center overflow-hidden">
                 {node.data.preview ? (
@@ -181,7 +263,7 @@ export function CustomFlowNode({
             </div>
           )}
 
-          {node.type === "audio-gen" && (
+          {node.type === "audio-generator" && (
             <div className="space-y-3">
               <div className="w-full h-20 bg-neutral-800 border border-neutral-600 flex items-center justify-center">
                 <div className="flex flex-col items-center gap-2 text-neutral-500">
@@ -213,7 +295,7 @@ export function CustomFlowNode({
 
         {/* Output Handle */}
         <div
-          className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-neutral-600 border border-neutral-500 cursor-pointer hover:bg-neutral-500 transition-all duration-100"
+          className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-red-600 border border-red-500 cursor-pointer hover:bg-red-500 transition-all duration-100"
           onClick={handleOutputClick}
         />
       </div>

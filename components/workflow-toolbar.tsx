@@ -123,9 +123,9 @@ export function WorkflowToolbar() {
   return (
     <>
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-        <div className="bg-black/90 backdrop-blur-sm border border-gray-800 rounded-lg p-2 flex items-center gap-2">
+        <div className="bg-black/90 backdrop-blur-sm border rounded-lg p-2 flex items-center gap-2 border-neutral-900">
           {/* Workflow Controls */}
-          <div className="flex items-center gap-1 pr-2 border-r border-gray-800">
+          <div className="flex items-center gap-1 pr-2 border-r border-neutral-800">
             <Button
               size="sm"
               variant="ghost"
@@ -149,7 +149,7 @@ export function WorkflowToolbar() {
           </div>
 
           {/* File Operations */}
-          <div className="flex items-center gap-1 pr-2 border-r border-gray-800">
+          <div className="flex items-center gap-1 pr-2 border-r border-neutral-800">
             <Button
               size="sm"
               variant="ghost"
@@ -179,7 +179,7 @@ export function WorkflowToolbar() {
           </div>
 
           {/* Export Content */}
-          <div className="flex items-center gap-1 pr-2 border-r border-gray-800">
+          <div className="flex items-center gap-1 pr-2 border-r border-neutral-800">
             <Button
               size="sm"
               variant="ghost"
@@ -218,8 +218,11 @@ export function WorkflowToolbar() {
           </Button>
 
           {/* Status */}
-          <div className="pl-2 border-l border-gray-800 text-xs text-gray-500">
-            {nodes.length} nodes • {connections.length} connections
+          <div className="pl-2 border-l text-xs text-gray-500 border-neutral-800">
+            <span className="transition-all duration-200">
+              {nodes.length} node{nodes.length !== 1 ? "s" : ""} • {connections.length} connection
+              {connections.length !== 1 ? "s" : ""}
+            </span>
           </div>
         </div>
       </div>
