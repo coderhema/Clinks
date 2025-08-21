@@ -154,7 +154,7 @@ export function WorkflowCanvas() {
   )
 
   return (
-    <div className="flex-1 relative" style={{ minHeight: "100%" }}>
+    <div className="flex-1 relative" style={{ minHeight: "100%", contain: "layout style paint" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -181,10 +181,7 @@ export function WorkflowCanvas() {
         elementsSelectable={true}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
-        <Controls
-          className="bg-neutral-900 border border-neutral-700"
-          style={{ button: { backgroundColor: "#1f2937", border: "1px solid #374151", color: "white" } }}
-        />
+        <Controls className="bg-white border border-gray-300 [&>button]:bg-gray-100 [&>button]:border-gray-300 [&>button]:text-gray-900 [&>button:hover]:bg-gray-200" />
         <MiniMap
           className="bg-neutral-900 border border-neutral-700"
           nodeColor="#3b82f6"
