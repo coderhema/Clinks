@@ -57,26 +57,25 @@ const modelOptions = {
       value: "playai-tts",
       label: "PlayAI TTS (Groq)",
       voices: [
-        "Aaliyah-PlayAI",
-        "Adam-PlayAI",
-        "Alex-PlayAI",
-        "Alice-PlayAI",
-        "Aria-PlayAI",
-        "Bella-PlayAI",
-        "Brian-PlayAI",
-        "Charlie-PlayAI",
-        "Diana-PlayAI",
-        "Emma-PlayAI",
-        "Grace-PlayAI",
-        "James-PlayAI",
-        "John-PlayAI",
-        "Kate-PlayAI",
-        "Liam-PlayAI",
-        "Maya-PlayAI",
-        "Oliver-PlayAI",
-        "Ryan-PlayAI",
-        "Sarah-PlayAI",
-        "Zoe-PlayAI",
+        "Arista-PlayAI",
+        "Atlas-PlayAI",
+        "Basil-PlayAI",
+        "Briggs-PlayAI",
+        "Calum-PlayAI",
+        "Celeste-PlayAI",
+        "Cheyenne-PlayAI",
+        "Chip-PlayAI",
+        "Cillian-PlayAI",
+        "Deedee-PlayAI",
+        "Fritz-PlayAI",
+        "Gail-PlayAI",
+        "Indigo-PlayAI",
+        "Mamaw-PlayAI",
+        "Mason-PlayAI",
+        "Mikail-PlayAI",
+        "Mitch-PlayAI",
+        "Quinn-PlayAI",
+        "Thunder-PlayAI",
       ],
     },
   ],
@@ -85,7 +84,7 @@ const modelOptions = {
 export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
   const [content, setContent] = useState(data.content || "")
   const [model, setModel] = useState(data.model || "")
-  const [voice, setVoice] = useState(data.config?.voice || "Aaliyah-PlayAI")
+  const [voice, setVoice] = useState(data.config?.voice || "Fritz-PlayAI")
   const [file, setFile] = useState<File | null>(null)
 
   useEffect(() => {
@@ -95,7 +94,12 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
     if (data.model !== undefined && data.model !== model) {
       setModel(data.model)
     }
-  }, [data.content, data.model, content, model])
+    if (data.nodeType === "audio-generator" && !data.config?.voice) {
+      data.onUpdate?.({
+        config: { ...data.config, voice: "Fritz-PlayAI", model: model || "playai-tts" },
+      })
+    }
+  }, [data.content, data.model, content, model, data.nodeType])
 
   const Icon = nodeIcons[data.nodeType as keyof typeof nodeIcons] || Type
   const models = modelOptions[data.nodeType as keyof typeof modelOptions] || []

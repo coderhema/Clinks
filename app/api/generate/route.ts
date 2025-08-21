@@ -208,7 +208,7 @@ export async function POST(request: NextRequest) {
           dangerouslyAllowBrowser: true,
         })
 
-        const voice = String(config.voice || "Aaliyah-PlayAI").trim()
+        const voice = String(config.voice || "Fritz-PlayAI").trim()
         const model = String(config.model || "playai-tts").trim()
         const responseFormat = String(config.responseFormat || "wav").trim()
         const inputText = String(finalPrompt || "Hello").trim()
