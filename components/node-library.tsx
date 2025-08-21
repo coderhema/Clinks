@@ -77,12 +77,35 @@ const nodeCategories = {
   outputs: {
     name: "Output Nodes",
     color: "bg-gray-700",
-    nodes: [{ id: "output", name: "Output", icon: Upload, description: "Export final results", color: "bg-gray-700" }],
+    nodes: [
+      {
+        id: "video-output",
+        name: "Video Output",
+        icon: Video,
+        description: "Export video results",
+        color: "bg-gray-700",
+      },
+      {
+        id: "image-output",
+        name: "Image Output",
+        icon: ImageIcon,
+        description: "Export image results",
+        color: "bg-gray-600",
+      },
+      {
+        id: "audio-output",
+        name: "Audio Output",
+        icon: Music,
+        description: "Export audio results",
+        color: "bg-gray-500",
+      },
+      { id: "output", name: "General Output", icon: Upload, description: "Export any results", color: "bg-gray-800" },
+    ],
   },
 }
 
 export function NodeLibrary() {
-  const { addDrawflowNode } = useWorkflow()
+  const { addNode } = useWorkflow()
   const [searchTerm, setSearchTerm] = useState("")
   const [expandedCategories, setExpandedCategories] = useState<string[]>(["inputs", "generators", "outputs"])
 
@@ -94,23 +117,8 @@ export function NodeLibrary() {
 
   const handleDragStart = (e: React.DragEvent, nodeData: any) => {
     e.dataTransfer.setData("application/json", JSON.stringify(nodeData))
-    e.dataTransfer.effectAllowed = "copy"
-
-    const dragPreview = document.createElement("div")
-    dragPreview.className =
-      "bg-gray-800 border border-gray-600 p-2 text-white text-xs font-medium shadow-xl pointer-events-none"
-    dragPreview.textContent = nodeData.name
-    dragPreview.style.position = "absolute"
-    dragPreview.style.top = "-1000px"
-    dragPreview.style.transform = "scale(0.9)"
-    document.body.appendChild(dragPreview)
-    e.dataTransfer.setDragImage(dragPreview, 0, 0)
-
-    requestAnimationFrame(() => {
-      if (document.body.contains(dragPreview)) {
-        document.body.removeChild(dragPreview)
-      }
-    })
+    e.dataTransfer.effectAllowed = "move"
+    console.log("[v0] Starting drag for node:", nodeData.name)
   }
 
   const filteredCategories = Object.entries(nodeCategories)
@@ -185,7 +193,15 @@ export function NodeLibrary() {
                           variant="ghost"
                           className="h-6 w-6 p-0 text-gray-400 hover:text-white hover:bg-gray-700 transition-all duration-200"
                           onClick={() => {
-                            console.log("Quick add:", node.name)
+                            console.log("[v0] Quick adding node:", node.name)
+                            addNode({
+                              type: node.id as any,
+                              position: { x: 200, y: 200 },
+                              data: {
+                                label: node.name,
+                                config: { model: "llama-3.1-8b-instant" },
+                              },
+                            })
                           }}
                         >
                           <Plus className="h-3 w-3" />

@@ -29,21 +29,37 @@ export function DrawflowCanvas() {
     document.head.appendChild(script)
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.shiftKey && e.key === "A") {
-        e.preventDefault()
-        selectAllNodes()
-      }
-      if (e.key === "Delete" || e.key === "Backspace") {
-        e.preventDefault()
-        deleteSelectedNodes()
+      try {
+        // Only handle keyboard events if we have a valid drawflow instance
+        if (!drawflowRef.current) return
+
+        if (e.shiftKey && e.key.toLowerCase() === "a") {
+          e.preventDefault()
+          e.stopPropagation()
+          selectAllNodes()
+          return
+        }
+
+        if (e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault()
+          e.stopPropagation()
+          deleteSelectedNodes()
+          return
+        }
+      } catch (error) {
+        console.error("[v0] Error in keyboard handler:", error)
       }
     }
 
-    document.addEventListener("keydown", handleKeyDown)
+    document.addEventListener("keydown", handleKeyDown, { passive: false })
 
     return () => {
-      if (drawflowRef.current) {
-        drawflowRef.current.clear()
+      try {
+        if (drawflowRef.current && typeof drawflowRef.current.clear === "function") {
+          drawflowRef.current.clear()
+        }
+      } catch (error) {
+        console.error("[v0] Error clearing drawflow:", error)
       }
       document.removeEventListener("keydown", handleKeyDown)
     }
@@ -59,12 +75,18 @@ export function DrawflowCanvas() {
         return
       }
 
+      let selectedCount = 0
       nodes.forEach((node) => {
-        if (node && node.classList) {
-          node.classList.add("selected")
+        try {
+          if (node && node.classList && typeof node.classList.add === "function") {
+            node.classList.add("selected")
+            selectedCount++
+          }
+        } catch (nodeError) {
+          console.error("[v0] Error selecting individual node:", nodeError)
         }
       })
-      console.log("[v0] Selected all nodes")
+      console.log("[v0] Selected all nodes:", selectedCount)
     } catch (error) {
       console.error("[v0] Error selecting nodes:", error)
     }
@@ -85,17 +107,21 @@ export function DrawflowCanvas() {
 
         const nodeIds: string[] = []
         allNodes.forEach((node) => {
-          if (node && node.getAttribute) {
-            const nodeId = node.getAttribute("data-node")
-            if (nodeId) {
-              nodeIds.push(nodeId)
+          try {
+            if (node && node.getAttribute && typeof node.getAttribute === "function") {
+              const nodeId = node.getAttribute("data-node")
+              if (nodeId) {
+                nodeIds.push(nodeId)
+              }
             }
+          } catch (nodeError) {
+            console.error("[v0] Error getting node ID:", nodeError)
           }
         })
 
         nodeIds.forEach((nodeId) => {
           try {
-            if (drawflowRef.current) {
+            if (drawflowRef.current && drawflowRef.current.removeNodeId) {
               drawflowRef.current.removeNodeId(`node-${nodeId}`)
               deleteNode(nodeId)
             }
@@ -107,17 +133,21 @@ export function DrawflowCanvas() {
       } else {
         const selectedNodeIds: string[] = []
         selectedNodes.forEach((node) => {
-          if (node && node.getAttribute) {
-            const nodeId = node.getAttribute("data-node")
-            if (nodeId) {
-              selectedNodeIds.push(nodeId)
+          try {
+            if (node && node.getAttribute && typeof node.getAttribute === "function") {
+              const nodeId = node.getAttribute("data-node")
+              if (nodeId) {
+                selectedNodeIds.push(nodeId)
+              }
             }
+          } catch (nodeError) {
+            console.error("[v0] Error getting selected node ID:", nodeError)
           }
         })
 
         selectedNodeIds.forEach((nodeId) => {
           try {
-            if (drawflowRef.current) {
+            if (drawflowRef.current && drawflowRef.current.removeNodeId) {
               drawflowRef.current.removeNodeId(`node-${nodeId}`)
               deleteNode(nodeId)
             }
@@ -129,8 +159,12 @@ export function DrawflowCanvas() {
       }
 
       setTimeout(() => {
-        if (drawflowRef.current) {
-          syncConnectionsToWorkflow(drawflowRef.current)
+        try {
+          if (drawflowRef.current && typeof drawflowRef.current.export === "function") {
+            syncConnectionsToWorkflow(drawflowRef.current)
+          }
+        } catch (syncError) {
+          console.error("[v0] Error syncing connections after deletion:", syncError)
         }
       }, 100)
     } catch (error) {

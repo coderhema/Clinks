@@ -168,7 +168,34 @@ export function PreviewPanel() {
           selectedNodeData ? (
             getPreviewContent(selectedNodeData, executionLogs)
           ) : (
-            <p className="text-gray-500 text-sm text-center">Select a node to see its preview</p>
+            (() => {
+              const outputNode = nodes.find((n) => n.type === "output")
+              if (outputNode && outputNode.data.result) {
+                return (
+                  <div className="space-y-4">
+                    <h4 className="text-white text-sm font-semibold">Final Output</h4>
+                    <div className="bg-neutral-900 p-3 rounded">
+                      {typeof outputNode.data.result === "string" && outputNode.data.result.startsWith("http") ? (
+                        <img
+                          src={outputNode.data.result || "/placeholder.svg"}
+                          alt="Final output"
+                          className="w-full rounded"
+                        />
+                      ) : outputNode.data.result?.audioUrl ? (
+                        <audio src={outputNode.data.result.audioUrl} controls className="w-full" />
+                      ) : (
+                        <div className="text-sm text-gray-300 whitespace-pre-wrap">
+                          {typeof outputNode.data.result === "string"
+                            ? outputNode.data.result
+                            : JSON.stringify(outputNode.data.result, null, 2)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )
+              }
+              return <p className="text-gray-500 text-sm text-center">Add output node to preview final results</p>
+            })()
           )
         ) : (
           <div className="space-y-3">

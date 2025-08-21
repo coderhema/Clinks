@@ -23,6 +23,9 @@ export interface WorkflowNode {
     config?: Record<string, any>
     preview?: string
     content?: string
+    generatedType?: string
+    result?: any
+    isExecuting?: boolean
   }
 }
 
@@ -49,7 +52,7 @@ export interface WorkflowData {
 interface WorkflowContextType {
   nodes: WorkflowNode[]
   connections: WorkflowConnection[]
-  addNode: (node: Omit<WorkflowNode, "id">) => void
+  addNode: (node: Omit<WorkflowNode, "id">) => string
   updateNode: (id: string, updates: Partial<WorkflowNode>) => void
   deleteNode: (id: string) => void
   addConnection: (connection: Omit<WorkflowConnection, "id">) => void
@@ -59,7 +62,7 @@ interface WorkflowContextType {
   exportWorkflow: (name?: string) => WorkflowData
   importWorkflow: (workflowData: WorkflowData) => void
   clearWorkflow: () => void
-  addReactFlowNode: (type: string, label: string, position?: { x: number; y: number }) => void
+  addReactFlowNode: (type: string, label: string, position?: { x: number; y: number }) => string
   executeWorkflow: () => Promise<void>
   isExecuting: boolean
   executionLogs: any[]
@@ -92,23 +95,52 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       },
     }
     setNodes((prev) => [...prev, newNode])
+    return newNode.id
   }, [])
 
-  const addReactFlowNode = useCallback((type: string, label: string, position = { x: 200, y: 200 }) => {
-    const newNode: WorkflowNode = {
-      id: `node-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      type: type as WorkflowNode["type"],
-      position,
-      data: {
-        label,
-        config: { model: "llama-3.1-8b-instant" }, // Default model
-      },
-    }
-    setNodes((prev) => [...prev, newNode])
-  }, [])
+  const addReactFlowNode = useCallback(
+    (type: string, label: string, position = { x: 200, y: 200 }) => {
+      return addNode({
+        type: type as WorkflowNode["type"],
+        position,
+        data: {
+          label,
+          config: { model: "llama-3.1-8b-instant" },
+        },
+      })
+    },
+    [addNode],
+  )
 
   const updateNode = useCallback((id: string, updates: Partial<WorkflowNode>) => {
-    setNodes((prev) => prev.map((node) => (node.id === id ? { ...node, ...updates } : node)))
+    setNodes((prev) =>
+      prev.map((node) => {
+        if (node.id === id) {
+          const updatedNode = {
+            ...node,
+            ...updates,
+            // Always preserve the original position unless explicitly updating it
+            position: updates.position || node.position,
+            data: {
+              ...node.data,
+              ...updates.data,
+              config: {
+                ...node.data.config,
+                ...updates.data?.config,
+              },
+            },
+          }
+
+          if (updatedNode.position && (isNaN(updatedNode.position.x) || isNaN(updatedNode.position.y))) {
+            console.warn(`[v0] Invalid position detected for node ${id}, preserving original position`)
+            updatedNode.position = node.position
+          }
+
+          return updatedNode
+        }
+        return node
+      }),
+    )
   }, [])
 
   const deleteNode = useCallback((id: string) => {
@@ -168,61 +200,8 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setExecutionLogs([])
 
     try {
-      // Extract current data from visual nodes before execution
-      const visualNodes = document.querySelectorAll(".drawflow-node")
-      const nodeDataMap = new Map<string, any>()
+      console.log("[v0] Starting workflow execution with React Flow nodes")
 
-      visualNodes.forEach((nodeElement) => {
-        const nodeId = nodeElement.getAttribute("data-node")
-        if (!nodeId) return
-
-        const nodeData: any = { inputs: [], models: [] }
-
-        // Extract text inputs and textareas
-        const textInputs = nodeElement.querySelectorAll('input[type="text"], textarea')
-        textInputs.forEach((input: any) => {
-          if (input.value && input.value.trim()) {
-            nodeData.inputs.push(input.value.trim())
-          }
-        })
-
-        // Extract model selections
-        const selects = nodeElement.querySelectorAll("select")
-        selects.forEach((select: any) => {
-          if (select.value) {
-            nodeData.models.push(select.value)
-          }
-        })
-
-        // Set primary content and model
-        nodeData.content = nodeData.inputs[0] || ""
-        nodeData.model = nodeData.models[0] || "llama-3.1-8b-instant"
-
-        nodeDataMap.set(nodeId, nodeData)
-      })
-
-      // Update nodes with extracted visual data
-      setNodes((prev) =>
-        prev.map((node) => {
-          const visualData = nodeDataMap.get(node.id)
-          if (visualData) {
-            return {
-              ...node,
-              data: {
-                ...node.data,
-                content: visualData.content || node.data.content,
-                config: {
-                  ...node.data.config,
-                  model: visualData.model || node.data.config?.model,
-                },
-              },
-            }
-          }
-          return node
-        }),
-      )
-
-      // Execute workflow with updated data
       const executionOrder = getExecutionOrder(nodes, connections)
       const nodeResults = new Map<string, any>()
 
@@ -230,45 +209,19 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         const node = nodes.find((n) => n.id === nodeId)
         if (!node) continue
 
-        // Use visual data if available
-        const visualData = nodeDataMap.get(nodeId)
-        const nodeWithVisualData = visualData
-          ? {
-              ...node,
-              data: {
-                ...node.data,
-                content: visualData.content || node.data.content,
-                config: {
-                  ...node.data.config,
-                  model: visualData.model || node.data.config?.model,
-                },
-              },
-            }
-          : node
-
         const startLog = {
           nodeId,
           timestamp: new Date().toISOString(),
-          type: nodeWithVisualData.type,
+          type: node.type,
           status: "running",
-          model: nodeWithVisualData.data.config?.model || "llama-3.1-8b-instant",
-          input: nodeWithVisualData.data.content || "No input",
+          model: `${node.data.config?.model || "llama-3.1-8b-instant"}`,
+          input: node.data.content || "No input",
         }
         setExecutionLogs((prev) => [...prev, startLog])
 
-        const result = await executeNode(nodeWithVisualData, nodeResults, connections)
+        const result = await executeNode(node, nodeResults, connections)
         if (result) {
           nodeResults.set(nodeId, result)
-
-          // Update visual preview in real-time
-          const previewElement = document.querySelector(`[data-node="${nodeId}"] .input-preview`)
-          if (previewElement) {
-            if (typeof result === "string") {
-              previewElement.textContent = `Generated: ${result.substring(0, 40)}${result.length > 40 ? "..." : ""}`
-            } else {
-              previewElement.textContent = "Generated successfully"
-            }
-          }
         }
       }
 
@@ -310,28 +263,29 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
           inputData = sourceResult
           if (typeof sourceResult === "string") {
             prompt = sourceResult
-          } else if (sourceResult.content) {
+          } else if (sourceResult && sourceResult.content) {
             prompt = sourceResult.content
-          } else if (sourceResult.text) {
+          } else if (sourceResult && sourceResult.text) {
             prompt = sourceResult.text
+          } else if (sourceResult && sourceResult.result) {
+            prompt = sourceResult.result
           }
 
-          // Update visual preview with connected input
-          const previewElement = document.querySelector(`[data-node="${node.id}"] .input-preview`)
-          if (previewElement) {
-            previewElement.textContent = `Input: ${prompt.substring(0, 50)}${prompt.length > 50 ? "..." : ""}`
-          }
+          console.log(`[v0] Node ${node.id} received input: "${String(prompt).substring(0, 100)}..."`)
         }
       }
 
       if (node.type === "text-input") {
         const textContent = node.data.content || prompt
-        if (!textContent || textContent.trim() === "") {
+        console.log(`[v0] Text input node ${node.id} content: "${textContent}"`)
+
+        if (!textContent || String(textContent).trim() === "") {
           const errorLog = {
             nodeId: node.id,
             timestamp: new Date().toISOString(),
             status: "failed",
-            error: "No text content provided",
+            error: "No text content provided - enter text in the input field",
+            nodeData: node.data,
           }
           setExecutionLogs((prev) => [...prev, errorLog])
           return null
@@ -342,7 +296,7 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
           timestamp: new Date().toISOString(),
           status: "completed",
           result: textContent,
-          inputTokens: textContent.split(" ").length,
+          inputTokens: String(textContent).split(" ").length,
         }
         setExecutionLogs((prev) => [...prev, successLog])
 
@@ -350,20 +304,82 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
           data: {
             ...node.data,
             content: textContent,
-            preview: textContent.substring(0, 100) + (textContent.length > 100 ? "..." : ""),
+            result: textContent,
+            preview: String(textContent).substring(0, 100) + (String(textContent).length > 100 ? "..." : ""),
           },
         })
 
         return textContent
       }
 
-      if (!prompt || prompt.trim() === "") {
+      if (node.type === "image-input") {
+        const imageContent = node.data.content || ""
+        if (!imageContent) {
+          const errorLog = {
+            nodeId: node.id,
+            timestamp: new Date().toISOString(),
+            status: "failed",
+            error: "No image uploaded - please upload a PNG or JPG file",
+          }
+          setExecutionLogs((prev) => [...prev, errorLog])
+          return null
+        }
+
+        const successLog = {
+          nodeId: node.id,
+          timestamp: new Date().toISOString(),
+          status: "completed",
+          result: "Image uploaded successfully",
+          imageUrl: imageContent,
+        }
+        setExecutionLogs((prev) => [...prev, successLog])
+
+        return imageContent
+      }
+
+      if (node.type === "output") {
+        if (!inputData) {
+          const errorLog = {
+            nodeId: node.id,
+            timestamp: new Date().toISOString(),
+            status: "failed",
+            error: "No input connected to output node",
+          }
+          setExecutionLogs((prev) => [...prev, errorLog])
+          return null
+        }
+
+        const successLog = {
+          nodeId: node.id,
+          timestamp: new Date().toISOString(),
+          status: "completed",
+          result: `Output ready for export`,
+          outputType: typeof inputData,
+          contentLength: typeof inputData === "string" ? inputData.length : "N/A",
+        }
+        setExecutionLogs((prev) => [...prev, successLog])
+
+        updateNode(node.id, {
+          data: {
+            ...node.data,
+            content: inputData,
+            result: inputData,
+            preview: `Ready to export: ${typeof inputData}`,
+          },
+        })
+
+        return inputData
+      }
+
+      if (!prompt || String(prompt).trim() === "") {
         const errorLog = {
           nodeId: node.id,
           timestamp: new Date().toISOString(),
           status: "failed",
           error: inputConnections.length > 0 ? "No input received from connected node" : "No input prompt provided",
-          model: node.data.config?.model || "No model selected",
+          model: `${node.data.config?.model || "No model selected"}`,
+          nodeContent: node.data.content,
+          inputConnections: inputConnections.length,
         }
         setExecutionLogs((prev) => [...prev, errorLog])
         return null
@@ -373,13 +389,13 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       switch (node.type) {
         case "image-generator":
         case "logo-generator":
-          generationType = "image-prompt"
+          generationType = "image"
           break
         case "video-generator":
-          generationType = "video-prompt"
+          generationType = "video"
           break
         case "audio-generator":
-          generationType = "audio-prompt"
+          generationType = "audio"
           break
         case "text-generator":
           generationType = "text"
@@ -388,6 +404,61 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
           generationType = "text"
       }
 
+      console.log(
+        `[v0] Generating ${generationType} for node ${node.id} with prompt: "${String(prompt).substring(0, 50)}..."`,
+      )
+
+      updateNode(node.id, {
+        data: {
+          ...node.data,
+          isExecuting: true,
+        },
+      })
+
+      const nodeConfig = node.data.config || {}
+
+      // Validate config before use - ensure all values are proper strings or have defaults
+      const validateConfigValue = (value: any, defaultValue: string): string => {
+        if (value === null || value === undefined || value === "") {
+          return defaultValue
+        }
+        return String(value)
+      }
+
+      // Set safe defaults for all config values based on generation type
+      let defaultModel = "llama-3.1-8b-instant"
+      const defaultVoice = "Aaliyah-PlayAI"
+
+      if (generationType === "audio") {
+        defaultModel = "playai-tts"
+        // Validate TTS model is present and valid
+        if (!nodeConfig.model || typeof nodeConfig.model !== "string" || nodeConfig.model.trim() === "") {
+          console.log(`[v0] Audio node missing model, using default: ${defaultModel}`)
+        }
+      }
+
+      const requestConfig = {
+        model: validateConfigValue(nodeConfig.model, defaultModel),
+        maxTokens: nodeConfig.maxTokens || 500,
+        temperature: nodeConfig.temperature || 0.7,
+        provider: validateConfigValue(nodeConfig.provider, "groq"),
+        voice: validateConfigValue(nodeConfig.voice, defaultVoice),
+        ...nodeConfig,
+      }
+
+      // Additional validation for audio generation
+      if (generationType === "audio") {
+        if (!requestConfig.model || requestConfig.model === "") {
+          throw new Error("TTS model is missing or invalid")
+        }
+        if (!requestConfig.voice || requestConfig.voice === "") {
+          requestConfig.voice = defaultVoice
+        }
+        console.log(`[v0] Audio config validated - Model: ${requestConfig.model}, Voice: ${requestConfig.voice}`)
+      }
+
+      console.log(`[v0] Request config:`, requestConfig)
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
@@ -395,40 +466,64 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         },
         body: JSON.stringify({
           type: generationType,
-          prompt,
+          prompt: String(prompt),
           nodeId: node.id,
           inputData,
-          config: {
-            model: node.data.config?.model || "llama-3.1-8b-instant",
-            maxTokens: node.data.config?.maxTokens || 500,
-            temperature: node.data.config?.temperature || 0.7,
-            provider: node.data.config?.provider || "groq",
-            ...node.data.config,
-          },
+          config: requestConfig,
         }),
       })
 
       const result = await response.json()
+      console.log(`[v0] API response for node ${node.id}:`, result)
 
       if (result.log) {
         setExecutionLogs((prev) => [...prev, result.log])
       }
 
-      if (response.ok && result.result) {
-        updateNode(node.id, {
-          data: {
-            ...node.data,
-            content: result.result,
-            preview: result.result,
-          },
-        })
+      const processedResult = result.result
+      let previewText = "Generated content"
 
-        return result.result
+      if (processedResult) {
+        if (typeof processedResult === "string") {
+          previewText = processedResult.substring(0, 100) + (processedResult.length > 100 ? "..." : "")
+        } else if (processedResult && typeof processedResult === "object") {
+          // Handle audio/video/image objects
+          if (processedResult.audioUrl) {
+            previewText = `Audio generated (${processedResult.voice || "default voice"})`
+          } else if (processedResult.type === "image" || processedResult.type === "video") {
+            previewText = `${processedResult.type} generated successfully`
+          } else {
+            previewText = "Generated content (object)"
+          }
+        }
+      }
+
+      updateNode(node.id, {
+        data: {
+          ...node.data,
+          isExecuting: false,
+          result: processedResult,
+          content: processedResult,
+          preview: previewText,
+        },
+      })
+
+      if (response.ok && processedResult) {
+        console.log(`[v0] Node ${node.id} generated successfully: ${typeof processedResult}`)
+        return processedResult
       } else {
         throw new Error(result.error || "Generation failed")
       }
     } catch (error) {
       console.error(`Failed to execute node ${node.id}:`, error)
+
+      updateNode(node.id, {
+        data: {
+          ...node.data,
+          isExecuting: false,
+        },
+      })
+
       setExecutionLogs((prev) => [
         ...prev,
         {
@@ -456,7 +551,6 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
 
       visiting.add(nodeId)
 
-      // Visit all dependencies (input nodes) first
       const dependencies = connections.filter((conn) => conn.target === nodeId).map((conn) => conn.source)
 
       dependencies.forEach(visit)
@@ -466,15 +560,12 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       order.push(nodeId)
     }
 
-    // Start with nodes that have no inputs (source nodes)
     const sourceNodes = nodes.filter((node) => !connections.some((conn) => conn.target === node.id))
 
-    // If no source nodes, start with all nodes
     const startNodes = sourceNodes.length > 0 ? sourceNodes : nodes
 
     startNodes.forEach((node) => visit(node.id))
 
-    // Visit any remaining unvisited nodes
     nodes.forEach((node) => {
       if (!visited.has(node.id)) {
         visit(node.id)

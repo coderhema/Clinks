@@ -1,127 +1,196 @@
 "use client"
 
 import type React from "react"
-import { useRef, useState, useCallback, useEffect } from "react"
+import { useCallback, useMemo, useEffect, useState } from "react"
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  useReactFlow,
+  type Connection,
+  type Edge,
+  BackgroundVariant,
+} from "@xyflow/react"
 import { useWorkflow } from "./workflow-provider"
-import { WorkflowNode } from "./workflow-node"
-import { ConnectionLine } from "./connection-line"
+import { CustomNode } from "./custom-node"
+
+const nodeTypes = {
+  custom: CustomNode,
+}
 
 export function WorkflowCanvas() {
-  const { nodes, connections, addNode } = useWorkflow()
-  const canvasRef = useRef<HTMLDivElement>(null)
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [tempConnection, setTempConnection] = useState<{
-    from: { x: number; y: number }
-    to: { x: number; y: number }
-  } | null>(null)
+  const {
+    nodes: workflowNodes,
+    connections,
+    addConnection,
+    deleteConnection,
+    updateNode,
+    addNode,
+    deleteNode,
+  } = useWorkflow()
+  const { screenToFlowPosition } = useReactFlow()
+  const [draggedType, setDraggedType] = useState<string | null>(null)
+
+  // Convert workflow nodes to React Flow nodes
+  const reactFlowNodes = useMemo(() => {
+    return workflowNodes.map((node) => ({
+      id: node.id,
+      type: "custom",
+      position: node.position,
+      data: {
+        ...node.data,
+        nodeType: node.type,
+        onUpdate: (updates: any) => updateNode(node.id, { data: { ...node.data, ...updates } }),
+      },
+    }))
+  }, [workflowNodes, updateNode])
+
+  // Convert workflow connections to React Flow edges
+  const reactFlowEdges = useMemo(() => {
+    return connections.map((conn) => ({
+      id: conn.id,
+      source: conn.source,
+      target: conn.target,
+      sourceHandle: conn.sourceHandle || "output",
+      targetHandle: conn.targetHandle || "input",
+      style: { stroke: "#3b82f6", strokeWidth: 2 },
+      animated: true,
+    }))
+  }, [connections])
+
+  const [nodes, setNodes, onNodesChange] = useNodesState(reactFlowNodes)
+  const [edges, setEdges, onEdgesChange] = useEdgesState(reactFlowEdges)
+
+  // Update React Flow state when workflow state changes
+  useEffect(() => {
+    setNodes(reactFlowNodes)
+  }, [reactFlowNodes, setNodes])
 
   useEffect(() => {
-    const handleStartConnection = (e: CustomEvent) => {
-      setTempConnection({
-        from: e.detail.position,
-        to: e.detail.position,
+    setEdges(reactFlowEdges)
+  }, [reactFlowEdges, setEdges])
+
+  const onNodesDelete = useCallback(
+    (deletedNodes: any[]) => {
+      deletedNodes.forEach((node) => {
+        console.log("[v0] Deleting node from workflow:", node.id)
+        deleteNode(node.id)
       })
-    }
+    },
+    [deleteNode],
+  )
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (tempConnection) {
-        setTempConnection((prev) =>
-          prev
-            ? {
-                ...prev,
-                to: { x: e.clientX, y: e.clientY },
-              }
-            : null,
-        )
-      }
-    }
-
-    const handleEndConnection = () => {
-      setTempConnection(null)
-    }
-
-    document.addEventListener("startConnection", handleStartConnection as EventListener)
-    document.addEventListener("mousemove", handleMouseMove)
-    document.addEventListener("endConnection", handleEndConnection as EventListener)
-
-    return () => {
-      document.removeEventListener("startConnection", handleStartConnection as EventListener)
-      document.removeEventListener("mousemove", handleMouseMove)
-      document.removeEventListener("endConnection", handleEndConnection as EventListener)
-    }
-  }, [tempConnection])
-
-  const handleCanvasClick = useCallback(
-    (e: React.MouseEvent) => {
-      if (e.target === canvasRef.current) {
-        // Double click to add a new node
-        if (e.detail === 2) {
-          const rect = canvasRef.current.getBoundingClientRect()
-          const x = e.clientX - rect.left
-          const y = e.clientY - rect.top
-
-          addNode({
-            type: "text-input",
-            position: { x, y },
-            data: { label: "Text Input" },
-          })
-        }
+  const onConnect = useCallback(
+    (params: Connection) => {
+      if (params.source && params.target) {
+        addConnection({
+          source: params.source,
+          target: params.target,
+          sourceHandle: params.sourceHandle || "output",
+          targetHandle: params.targetHandle || "input",
+        })
       }
     },
-    [addNode],
+    [addConnection],
+  )
+
+  const onEdgeClick = useCallback(
+    (event: React.MouseEvent, edge: Edge) => {
+      event.stopPropagation()
+      deleteConnection(edge.id)
+    },
+    [deleteConnection],
+  )
+
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault()
+    event.dataTransfer.dropEffect = "move"
+  }, [])
+
+  const onDrop = useCallback(
+    (event: React.DragEvent) => {
+      event.preventDefault()
+
+      const nodeData = event.dataTransfer.getData("application/json")
+
+      if (!nodeData) {
+        console.log("[v0] No node data found in drop event")
+        return
+      }
+
+      try {
+        const parsedData = JSON.parse(nodeData)
+
+        const position = screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
+        })
+
+        const randomOffset = {
+          x: position.x + (Math.random() - 0.5) * 100,
+          y: position.y + (Math.random() - 0.5) * 100,
+        }
+
+        console.log("[v0] Drop event - Adding node:", parsedData.name, "at position:", randomOffset)
+
+        const nodeId = addNode({
+          type: parsedData.id as any,
+          position: randomOffset,
+          data: {
+            label: parsedData.name,
+            config: { model: "llama-3.1-8b-instant" },
+          },
+        })
+
+        console.log("[v0] Successfully added node with ID:", nodeId)
+      } catch (error) {
+        console.error("[v0] Failed to parse node data:", error)
+      }
+    },
+    [screenToFlowPosition, addNode],
   )
 
   return (
-    <div className="flex-1 relative overflow-hidden">
-      {/* Canvas Area */}
-      <div
-        ref={canvasRef}
-        className="absolute inset-0 bg-black"
-        onClick={handleCanvasClick}
-        style={{
-          backgroundImage: `
-            radial-gradient(circle, #1f2937 1px, transparent 1px)
-          `,
-          backgroundSize: "20px 20px",
+    <div className="flex-1 relative" style={{ minHeight: "100%" }}>
+      <ReactFlow
+        nodes={nodes}
+        edges={edges}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onEdgeClick={onEdgeClick}
+        onNodesDelete={onNodesDelete}
+        nodeTypes={nodeTypes}
+        fitViewOptions={{
+          padding: 0.1,
+          includeHiddenNodes: false,
+          minZoom: 0.5,
+          maxZoom: 1.5,
         }}
+        defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
+        className="bg-black"
+        proOptions={{ hideAttribution: true }}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        preventScrolling={false}
+        nodesDraggable={true}
+        nodesConnectable={true}
+        elementsSelectable={true}
       >
-        {/* Render connections */}
-        <svg className="absolute inset-0 pointer-events-none" style={{ zIndex: 1 }}>
-          {connections.map((connection) => {
-            const sourceNode = nodes.find((n) => n.id === connection.source)
-            const targetNode = nodes.find((n) => n.id === connection.target)
-
-            if (!sourceNode || !targetNode) return null
-
-            return (
-              <ConnectionLine
-                key={connection.id}
-                from={{ x: sourceNode.position.x + 150, y: sourceNode.position.y + 40 }}
-                to={{ x: targetNode.position.x, y: targetNode.position.y + 40 }}
-              />
-            )
-          })}
-
-          {tempConnection && <ConnectionLine from={tempConnection.from} to={tempConnection.to} temporary={true} />}
-        </svg>
-
-        {/* Render nodes */}
-        {nodes.map((node) => (
-          <WorkflowNode key={node.id} node={node} />
-        ))}
-
-        {/* Instructions */}
-        {nodes.length === 0 && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center text-gray-500">
-              <p className="text-lg mb-2">Double-click to add a node</p>
-              <p className="text-sm">Or drag components from the left panel</p>
-              <p className="text-xs mt-2">Drag from output (right) to input (left) to connect nodes</p>
-            </div>
-          </div>
-        )}
-      </div>
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
+        <Controls
+          className="bg-neutral-900 border border-neutral-700"
+          style={{ button: { backgroundColor: "#1f2937", border: "1px solid #374151", color: "white" } }}
+        />
+        <MiniMap
+          className="bg-neutral-900 border border-neutral-700"
+          nodeColor="#3b82f6"
+          maskColor="rgba(0, 0, 0, 0.8)"
+        />
+      </ReactFlow>
     </div>
   )
 }

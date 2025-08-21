@@ -2,13 +2,25 @@ import { type NextRequest, NextResponse } from "next/server"
 import { generateText } from "ai"
 import { groq } from "@ai-sdk/groq"
 import { openai } from "@ai-sdk/openai"
+import { google } from "@ai-sdk/google"
+import Groq from "groq-sdk"
 
 function getModelProvider(modelId: string) {
+  if (!modelId || typeof modelId !== "string") {
+    return "groq" // Default provider
+  }
+
+  if (modelId.startsWith("fal-ai/") || modelId.includes("flux") || modelId.includes("stable-diffusion")) {
+    return "fal"
+  }
+  if (modelId.startsWith("gemini-") || modelId.includes("gemini")) {
+    return "google"
+  }
   if (modelId.startsWith("openai/dall-e") || modelId.startsWith("stability-ai/") || modelId.startsWith("midjourney/")) {
     return "openrouter-image"
   }
   if (modelId.startsWith("tts-")) {
-    return "openai-audio"
+    return "openrouter-audio"
   }
   if (
     modelId.startsWith("openai/") ||
@@ -28,11 +40,12 @@ export async function POST(request: NextRequest) {
   try {
     const { type, prompt, config = {}, nodeId, inputData } = await request.json()
 
-    // Use inputData as prompt if no direct prompt provided (for connected nodes)
     let finalPrompt = prompt
     if (!finalPrompt && inputData) {
       if (typeof inputData === "string") {
         finalPrompt = inputData
+      } else if (inputData.result) {
+        finalPrompt = inputData.result
       } else if (inputData.content) {
         finalPrompt = inputData.content
       } else if (inputData.text) {
@@ -56,7 +69,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const modelId = config.model || "llama-3.1-8b-instant"
+    let modelId = config.model
+    if (!modelId || typeof modelId !== "string") {
+      if (type === "audio" || type === "audio-prompt") {
+        modelId = "playai-tts" // Default for audio
+      } else {
+        modelId = "llama-3.1-8b-instant" // Default for text
+      }
+    }
+
     const provider = getModelProvider(modelId)
 
     const executionLog = {
@@ -73,66 +94,95 @@ export async function POST(request: NextRequest) {
     const startTime = Date.now()
     let result, usage, generatedContent
 
-    if (type === "image-prompt" || type === "image" || type === "logo") {
+    if (type === "image" || type === "logo" || type === "video") {
       try {
-        const openrouterKey = process.env.OPENROUTER_API_KEY
-        if (!openrouterKey) {
+        const falKey = process.env.FAL_KEY
+        if (!falKey) {
           return NextResponse.json(
             {
-              error: "OpenRouter API key required for image generation. Please check your environment variables.",
-              log: { ...executionLog, status: "failed", error: "Missing OpenRouter API key" },
+              error: "FAL API key required for image/video generation. Please add FAL_KEY to environment variables.",
+              log: { ...executionLog, status: "failed", error: "Missing FAL API key" },
             },
             { status: 400 },
           )
         }
 
-        const imageModel = modelId || "openai/dall-e-3"
-
-        const imageResponse = await fetch("https://openrouter.ai/api/v1/images/generations", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openrouterKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000",
-            "X-Title": "AI Workflow Builder",
-          },
-          body: JSON.stringify({
-            model: imageModel,
-            prompt: finalPrompt,
-            n: 1,
-            size: config.quality === "hd" ? "1024x1024" : "512x512",
-            quality: config.quality || "standard",
-          }),
-        })
-
-        if (!imageResponse.ok) {
-          const errorData = await imageResponse.json()
-          throw new Error(errorData.error?.message || "Image generation failed")
+        let falModel = "fal-ai/flux/schnell"
+        let requestBody: any = {
+          prompt: finalPrompt,
         }
 
-        const imageData = await imageResponse.json()
-        const imageUrl = imageData.data?.[0]?.url
+        if (type === "video") {
+          falModel = "fal-ai/stable-video"
+          requestBody = {
+            prompt: finalPrompt,
+            duration: config.duration || 3,
+            fps: config.fps || 8,
+          }
+        } else if (type === "image" || type === "logo") {
+          if (modelId.includes("flux-pro")) {
+            falModel = "fal-ai/flux-pro"
+          } else if (modelId.includes("flux-dev")) {
+            falModel = "fal-ai/flux/dev"
+          } else if (modelId.includes("stable-diffusion")) {
+            falModel = "fal-ai/stable-diffusion-v3-medium"
+          } else {
+            falModel = "fal-ai/flux/schnell" // Fast, high-quality default
+          }
 
-        if (!imageUrl) {
-          throw new Error("No image URL returned from OpenRouter API")
+          requestBody = {
+            prompt: finalPrompt,
+            image_size: config.size || "square_hd",
+            num_inference_steps: config.steps || 28,
+            guidance_scale: config.guidance || 3.5,
+          }
+        }
+
+        const falResponse = await fetch(`https://fal.run/${falModel}`, {
+          method: "POST",
+          headers: {
+            Authorization: `Key ${falKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        })
+
+        if (!falResponse.ok) {
+          const errorData = await falResponse.json()
+          throw new Error(errorData.detail || `FAL API error: ${falResponse.status}`)
+        }
+
+        const falData = await falResponse.json()
+        let resultUrl
+
+        if (type === "video") {
+          resultUrl = falData.video?.url || falData.video
+        } else {
+          resultUrl = falData.images?.[0]?.url || falData.image?.url
+        }
+
+        if (!resultUrl) {
+          throw new Error("No result URL returned from FAL API")
         }
 
         const executionTime = Date.now() - startTime
         return NextResponse.json({
-          result: imageUrl,
-          type: "image",
+          result: resultUrl,
+          type: type,
           log: {
             ...executionLog,
             status: "completed",
             executionTime,
-            resultLength: imageUrl.length,
+            resultLength: resultUrl.length,
             finalPrompt: finalPrompt.slice(0, 200),
+            model: falModel,
+            note: `Real ${type} generated successfully`,
           },
         })
       } catch (error) {
         return NextResponse.json(
           {
-            error: `Image generation failed: ${error.message}`,
+            error: `${type} generation failed: ${error.message}`,
             log: { ...executionLog, status: "failed", error: error.message },
           },
           { status: 500 },
@@ -142,50 +192,68 @@ export async function POST(request: NextRequest) {
 
     if (type === "audio-prompt" || type === "audio") {
       try {
-        const openaiKey = process.env.OPENAI_API_KEY
-        if (!openaiKey) {
+        const groqKey = process.env.GROQ_API_KEY
+        if (!groqKey) {
           return NextResponse.json(
             {
-              error:
-                "OpenAI API key required for audio generation. Please add OPENAI_API_KEY to environment variables.",
-              log: { ...executionLog, status: "failed", error: "Missing OpenAI API key" },
+              error: "Groq API key required for audio generation. Please check your environment variables.",
+              log: { ...executionLog, status: "failed", error: "Missing Groq API key" },
             },
             { status: 400 },
           )
         }
 
-        const audioResponse = await fetch("https://api.openai.com/v1/audio/speech", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${openaiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: modelId || "tts-1",
-            input: finalPrompt,
-            voice: "alloy",
-          }),
+        const client = new Groq({
+          apiKey: groqKey,
+          dangerouslyAllowBrowser: true,
         })
 
-        if (!audioResponse.ok) {
-          const errorData = await audioResponse.json()
-          throw new Error(errorData.error?.message || "Audio generation failed")
+        const voice = String(config.voice || "Aaliyah-PlayAI").trim()
+        const model = String(config.model || "playai-tts").trim()
+        const responseFormat = String(config.responseFormat || "wav").trim()
+        const inputText = String(finalPrompt || "Hello").trim()
+
+        // Validate all parameters are non-empty strings
+        if (!voice || !model || !responseFormat || !inputText) {
+          throw new Error("Invalid parameters: all audio generation parameters must be non-empty strings")
         }
 
-        const audioBuffer = await audioResponse.arrayBuffer()
-        const audioBase64 = Buffer.from(audioBuffer).toString("base64")
-        const audioUrl = `data:audio/mpeg;base64,${audioBase64}`
+        console.log("[v0] Audio generation parameters:", {
+          model,
+          voice,
+          responseFormat,
+          inputText: inputText.slice(0, 50),
+        })
+
+        const wav = await client.audio.speech.create({
+          model: model,
+          voice: voice,
+          response_format: responseFormat,
+          input: inputText,
+        })
+
+        const buffer = Buffer.from(await wav.arrayBuffer())
+        const audioBase64 = buffer.toString("base64")
+        const audioDataUrl = `data:audio/wav;base64,${audioBase64}`
 
         const executionTime = Date.now() - startTime
         return NextResponse.json({
-          result: audioUrl,
+          result: {
+            audioUrl: audioDataUrl,
+            text: finalPrompt,
+            type: "audio-file",
+            voice: voice,
+          },
           type: "audio",
           log: {
             ...executionLog,
             status: "completed",
             executionTime,
-            resultLength: audioBuffer.byteLength,
-            finalPrompt: finalPrompt.slice(0, 200),
+            resultLength: buffer.length,
+            finalPrompt: String(finalPrompt || "").slice(0, 200),
+            model: model,
+            voice: voice,
+            note: "Real audio generated with Groq TTS",
           },
         })
       } catch (error) {
@@ -201,7 +269,19 @@ export async function POST(request: NextRequest) {
 
     let modelInstance
     try {
-      if (provider === "openrouter") {
+      if (provider === "google") {
+        const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+        if (!googleKey) {
+          return NextResponse.json(
+            {
+              error: "Google AI API key required. Please add GOOGLE_GENERATIVE_AI_API_KEY to environment variables.",
+              log: { ...executionLog, status: "failed", error: "Missing API key" },
+            },
+            { status: 400 },
+          )
+        }
+        modelInstance = google(modelId)
+      } else if (provider === "openrouter") {
         const openrouterKey = process.env.OPENROUTER_API_KEY
         if (!openrouterKey) {
           return NextResponse.json(
@@ -220,7 +300,7 @@ export async function POST(request: NextRequest) {
       } else if (provider === "openrouter-image") {
         return NextResponse.json(
           {
-            error: "Image generation should be handled in the image/logo section above",
+            error: "Image generation should be handled by FAL integration above",
             log: { ...executionLog, status: "failed", error: "Invalid routing" },
           },
           { status: 400 },

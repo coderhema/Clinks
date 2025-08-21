@@ -1,20 +1,24 @@
 "use client"
 
-import { DrawflowCanvas } from "@/components/drawflow-canvas"
+import { ReactFlowProvider } from "@xyflow/react"
+import "@xyflow/react/dist/style.css"
 import { NodeLibrary } from "@/components/node-library"
 import { PreviewPanel } from "@/components/preview-panel"
 import { WorkflowProvider } from "@/components/workflow-provider"
 import { WorkflowToolbar } from "@/components/workflow-toolbar"
+import { WorkflowCanvas } from "@/components/workflow-canvas"
 
 export default function Home() {
   return (
     <WorkflowProvider>
-      <div className="h-screen bg-black flex relative">
-        <NodeLibrary />
-        <DrawflowCanvas />
-        <PreviewPanel />
-        <WorkflowToolbar />
-      </div>
+      <ReactFlowProvider>
+        <div className="h-screen bg-black flex relative">
+          <NodeLibrary />
+          <WorkflowCanvas />
+          <PreviewPanel />
+          <WorkflowToolbar />
+        </div>
+      </ReactFlowProvider>
     </WorkflowProvider>
   )
 }

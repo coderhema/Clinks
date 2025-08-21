@@ -9,12 +9,15 @@
     "start": "next start"
   },
   "dependencies": {
+    "@ai-sdk/google": "latest",
     "@ai-sdk/groq": "latest",
     "@ai-sdk/openai": "latest",
+    "@xyflow/react": "latest",
     "ai": "latest",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "drawflow": "^0.0.60",
+    "groq-sdk": "latest",
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
     "react": "^19",
