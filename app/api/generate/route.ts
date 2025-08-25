@@ -192,6 +192,47 @@ export async function POST(request: NextRequest) {
 
     if (type === "audio-prompt" || type === "audio") {
       try {
+        const model = String(config.model || "playai-tts").trim()
+
+        if (model.startsWith("puter-")) {
+          // Handle Puter TTS generation
+          const voice = String(config.voice || "Joanna").trim()
+          const inputText = String(finalPrompt || "Hello").trim()
+
+          // Extract engine type from model
+          const engine = model.replace("puter-", "")
+
+          console.log("[v0] Puter TTS parameters:", {
+            model,
+            voice,
+            engine,
+            inputText: inputText.slice(0, 50),
+          })
+
+          // Return Puter TTS result (browser-based generation)
+          const executionTime = Date.now() - startTime
+          return NextResponse.json({
+            result: {
+              text: finalPrompt,
+              type: "puter-audio",
+              voice: voice,
+              engine: engine,
+              canSpeak: true,
+            },
+            type: "audio",
+            log: {
+              ...executionLog,
+              status: "completed",
+              executionTime,
+              finalPrompt: String(finalPrompt || "").slice(0, 200),
+              model: model,
+              voice: voice,
+              engine: engine,
+              note: "Puter TTS configured for browser synthesis",
+            },
+          })
+        }
+
         const groqKey = process.env.GROQ_API_KEY
         if (!groqKey) {
           return NextResponse.json(
@@ -208,25 +249,25 @@ export async function POST(request: NextRequest) {
           dangerouslyAllowBrowser: true,
         })
 
+        // Ensure all parameters are valid strings with proper defaults
         const voice = String(config.voice || "Fritz-PlayAI").trim()
-        const model = String(config.model || "playai-tts").trim()
-        const responseFormat = String(config.responseFormat || "wav").trim()
+        const responseFormat = "wav" // Fixed format
         const inputText = String(finalPrompt || "Hello").trim()
 
-        // Validate all parameters are non-empty strings
-        if (!voice || !model || !responseFormat || !inputText) {
-          throw new Error("Invalid parameters: all audio generation parameters must be non-empty strings")
+        // Additional validation to prevent undefined errors
+        if (!voice || voice === "undefined" || !inputText || inputText === "undefined") {
+          throw new Error(`Invalid parameters: voice="${voice}", inputText="${inputText.slice(0, 20)}..."`)
         }
 
         console.log("[v0] Audio generation parameters:", {
-          model,
+          model: "playai-tts", // Fixed model name
           voice,
           responseFormat,
           inputText: inputText.slice(0, 50),
         })
 
         const wav = await client.audio.speech.create({
-          model: model,
+          model: "playai-tts",
           voice: voice,
           response_format: responseFormat,
           input: inputText,
@@ -251,7 +292,7 @@ export async function POST(request: NextRequest) {
             executionTime,
             resultLength: buffer.length,
             finalPrompt: String(finalPrompt || "").slice(0, 200),
-            model: model,
+            model: "playai-tts",
             voice: voice,
             note: "Real audio generated with Groq TTS",
           },
