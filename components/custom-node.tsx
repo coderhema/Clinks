@@ -35,6 +35,7 @@ const modelOptions = {
     { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B Versatile (Groq)" },
     { value: "llama3-70b-8192", label: "Llama 3 70B (Groq)" },
     { value: "llama3-8b-8192", label: "Llama 3 8B (Groq)" },
+    { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B (Groq)" },
     { value: "gemma2-9b-it", label: "Gemma 2 9B (Groq)" },
   ],
   "image-generator": [
@@ -62,6 +63,7 @@ const modelOptions = {
         "Briggs-PlayAI",
         "Calum-PlayAI",
         "Celeste-PlayAI",
+        "Cheyenne-PlayAI",
         "Chip-PlayAI",
         "Cillian-PlayAI",
         "Deedee-PlayAI",
@@ -80,273 +82,51 @@ const modelOptions = {
       value: "puter-standard",
       label: "Puter Standard (puter)",
       voices: [
-        "Joanna",
-        "Matthew",
-        "Amy",
-        "Brian",
-        "Emma",
-        "Russell",
-        "Nicole",
-        "Joey",
-        "Justin",
-        "Ivy",
-        "Kendra",
-        "Kimberly",
-        "Salli",
-        "Raveena",
-        "Aditi",
-        "Zhiyu",
-        "Seoyeon",
-        "Takumi",
-        "Mizuki",
-        "Geraint",
+        "en-US-Standard",
+        "en-GB-Standard",
+        "fr-FR-Standard",
+        "de-DE-Standard",
+        "es-ES-Standard",
+        "it-IT-Standard",
+        "pt-BR-Standard",
+        "ja-JP-Standard",
+        "ko-KR-Standard",
+        "zh-CN-Standard",
       ],
     },
     {
       value: "puter-neural",
       label: "Puter Neural (puter)",
       voices: [
-        "Joanna",
-        "Matthew",
-        "Amy",
-        "Brian",
-        "Emma",
-        "Russell",
-        "Nicole",
-        "Joey",
-        "Justin",
-        "Ivy",
-        "Kendra",
-        "Kimberly",
-        "Salli",
-        "Raveena",
-        "Aditi",
-        "Zhiyu",
-        "Seoyeon",
-        "Takumi",
-        "Mizuki",
-        "Geraint",
+        "en-US-Neural",
+        "en-GB-Neural",
+        "fr-FR-Neural",
+        "de-DE-Neural",
+        "es-ES-Neural",
+        "it-IT-Neural",
+        "pt-BR-Neural",
+        "ja-JP-Neural",
+        "ko-KR-Neural",
+        "zh-CN-Neural",
       ],
     },
     {
       value: "puter-generative",
       label: "Puter Generative (puter)",
       voices: [
-        "Joanna",
-        "Matthew",
-        "Amy",
-        "Brian",
-        "Emma",
-        "Russell",
-        "Nicole",
-        "Joey",
-        "Justin",
-        "Ivy",
-        "Kendra",
-        "Kimberly",
-        "Salli",
-        "Raveena",
-        "Aditi",
-        "Zhiyu",
-        "Seoyeon",
-        "Takumi",
-        "Mizuki",
-        "Geraint",
+        "en-US-Generative",
+        "en-GB-Generative",
+        "fr-FR-Generative",
+        "de-DE-Generative",
+        "es-ES-Generative",
+        "it-IT-Generative",
+        "pt-BR-Generative",
+        "ja-JP-Generative",
+        "ko-KR-Generative",
+        "zh-CN-Generative",
       ],
     },
   ],
-}
-
-class PuterSpeech {
-  private isPlaying = false
-  private currentAudio: any = null
-
-  async speak(text: string, options: any = {}) {
-    this.stop()
-
-    const defaultOptions = {
-      voice: "Joanna",
-      engine: "neural",
-      language: "en-US",
-      rate: 1.0,
-      pitch: 1.0,
-    }
-
-    const config = { ...defaultOptions, ...options }
-
-    try {
-      // Clean text before processing
-      const cleanText = text
-        .replace(/[^\w\s.,!?]/g, "")
-        .replace(/\s+/g, " ")
-        .trim()
-
-      // @ts-ignore - Puter is loaded via script tag
-      this.currentAudio = await window.puter?.ai?.txt2speech(cleanText, config)
-      this.isPlaying = true
-
-      if (this.currentAudio) {
-        this.currentAudio.onended = () => {
-          this.isPlaying = false
-          this.currentAudio = null
-        }
-
-        this.currentAudio.play()
-      }
-
-      return this.currentAudio
-    } catch (error) {
-      console.error("Puter TTS error:", error)
-      this.isPlaying = false
-      throw error
-    }
-  }
-
-  stop() {
-    if (this.currentAudio) {
-      this.currentAudio.pause()
-      this.currentAudio = null
-      this.isPlaying = false
-    }
-  }
-}
-
-const puterSpeech = new PuterSpeech()
-
-const AudioPlayer = ({ audioData, onPlay }: { audioData: any; onPlay: () => void }) => {
-  const [isPlaying, setIsPlaying] = useState(false)
-  const [currentTime, setCurrentTime] = useState(0)
-  const [duration, setDuration] = useState(0)
-  const [audio, setAudio] = useState<HTMLAudioElement | null>(null)
-
-  const handlePlay = async () => {
-    if (isPlaying && audio) {
-      audio.pause()
-      setIsPlaying(false)
-      return
-    }
-
-    try {
-      // Try Puter TTS first
-      const engine = audioData.engine || "neural"
-      const voice = audioData.voice || "Joanna"
-
-      console.log("[v0] Attempting Puter TTS with:", { voice, engine, text: audioData.text })
-
-      // @ts-ignore - Puter is loaded via script tag
-      if (window.puter?.ai?.txt2speech) {
-        const puterAudio = await window.puter.ai.txt2speech(audioData.text, {
-          voice: voice,
-          engine: engine,
-          language: "en-US",
-        })
-
-        if (puterAudio && puterAudio.play) {
-          setAudio(puterAudio)
-          setIsPlaying(true)
-
-          puterAudio.addEventListener("timeupdate", () => {
-            setCurrentTime(puterAudio.currentTime || 0)
-          })
-
-          puterAudio.addEventListener("loadedmetadata", () => {
-            setDuration(puterAudio.duration || 0)
-          })
-
-          puterAudio.addEventListener("ended", () => {
-            setIsPlaying(false)
-            setCurrentTime(0)
-          })
-
-          await puterAudio.play()
-          console.log("[v0] Puter TTS playing successfully")
-          return
-        }
-      }
-
-      // Fallback to browser speech synthesis
-      console.log("[v0] Falling back to browser speech synthesis")
-      if ("speechSynthesis" in window) {
-        const utterance = new SpeechSynthesisUtterance(audioData.text)
-        utterance.rate = 0.9
-        utterance.pitch = 1
-        utterance.volume = 0.8
-
-        utterance.onstart = () => setIsPlaying(true)
-        utterance.onend = () => setIsPlaying(false)
-
-        speechSynthesis.speak(utterance)
-      }
-    } catch (error) {
-      console.error("[v0] Audio playback failed:", error)
-      setIsPlaying(false)
-    }
-  }
-
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!audio || !duration) return
-
-    const rect = e.currentTarget.getBoundingClientRect()
-    const clickX = e.clientX - rect.left
-    const newTime = (clickX / rect.width) * duration
-
-    audio.currentTime = newTime
-    setCurrentTime(newTime)
-  }
-
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60)
-    const seconds = Math.floor(time % 60)
-    return `${minutes}:${seconds.toString().padStart(2, "0")}`
-  }
-
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0
-
-  return (
-    <div className="space-y-3">
-      <div className="text-xs text-neutral-300 max-h-20 overflow-y-auto font-mono whitespace-pre-wrap break-words leading-relaxed bg-neutral-900 p-2 rounded">
-        {audioData.text}
-      </div>
-
-      {/* Media Player Controls */}
-      <div className="bg-neutral-800 p-3 rounded space-y-2">
-        {/* Play/Pause Button */}
-        <div className="flex items-center gap-3">
-          <button
-            onClick={handlePlay}
-            className="w-8 h-8 bg-blue-600 hover:bg-blue-700 text-white rounded-full flex items-center justify-center transition-colors"
-          >
-            {isPlaying ? (
-              <div className="w-2 h-2 bg-white rounded-sm" />
-            ) : (
-              <div className="w-0 h-0 border-l-[6px] border-l-white border-t-[4px] border-t-transparent border-b-[4px] border-b-transparent ml-0.5" />
-            )}
-          </button>
-
-          {/* Progress Bar */}
-          <div className="flex-1 relative">
-            <div className="h-2 bg-neutral-600 rounded-full cursor-pointer" onClick={handleSeek}>
-              <div
-                className="h-full bg-blue-500 rounded-full transition-all duration-100"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Time Display */}
-          <div className="text-xs text-neutral-400 min-w-[60px] text-right">
-            {formatTime(currentTime)} / {formatTime(duration)}
-          </div>
-        </div>
-
-        {/* Audio Info */}
-        <div className="text-xs text-neutral-400 flex justify-between">
-          <span>Voice: {audioData.voice}</span>
-          <span>Engine: {audioData.engine || "neural"}</span>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
@@ -363,13 +143,12 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
       setModel(data.model)
     }
     if (data.nodeType === "audio-generator" && !data.config?.voice) {
-      const defaultVoice = model?.startsWith("puter-") ? "Joanna" : "Fritz-PlayAI"
-      setVoice(defaultVoice)
+      const defaultVoice = model?.startsWith("puter-") ? "en-US-Standard" : "Fritz-PlayAI"
       data.onUpdate?.({
         config: { ...data.config, voice: defaultVoice, model: model || "playai-tts" },
       })
     }
-  }, [data.content, data.model, content, model, data.nodeType, data.onUpdate])
+  }, [data.content, data.model, content, model, data.nodeType])
 
   const Icon = nodeIcons[data.nodeType as keyof typeof nodeIcons] || Type
   const models = modelOptions[data.nodeType as keyof typeof modelOptions] || []
@@ -558,7 +337,27 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
                 <div className="text-xs text-neutral-400">Voice: {data.result.voice}</div>
               </div>
             ) : data.nodeType.includes("audio") && data.result?.canSpeak ? (
-              <AudioPlayer audioData={data.result} onPlay={() => console.log("[v0] Audio player activated")} />
+              <div className="space-y-2">
+                <div className="text-xs text-neutral-300 max-h-20 overflow-y-auto font-mono whitespace-pre-wrap break-words leading-relaxed bg-neutral-900 p-2 rounded">
+                  {data.result.text}
+                </div>
+                <button
+                  onClick={() => {
+                    if ("speechSynthesis" in window) {
+                      const utterance = new SpeechSynthesisUtterance(data.result.text)
+                      utterance.rate = 0.9
+                      utterance.pitch = 1
+                      utterance.volume = 0.8
+                      speechSynthesis.speak(utterance)
+                    }
+                  }}
+                  className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center justify-center gap-2"
+                >
+                  <Music className="w-3 h-3" />
+                  Play Audio
+                </button>
+                <div className="text-xs text-neutral-400">Click to hear the generated audio</div>
+              </div>
             ) : (
               <div className="text-xs text-neutral-300 max-h-32 overflow-y-auto font-mono whitespace-pre-wrap break-words leading-relaxed">
                 {typeof data.result === "string" ? data.result : JSON.stringify(data.result, null, 2)}

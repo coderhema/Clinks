@@ -196,16 +196,18 @@ export async function POST(request: NextRequest) {
 
         if (model.startsWith("puter-")) {
           // Handle Puter TTS generation
-          const voice = String(config.voice || "Joanna").trim()
+          const voice = String(config.voice || "en-US-Standard").trim()
           const inputText = String(finalPrompt || "Hello").trim()
 
-          // Extract engine type from model
+          // Extract engine type and language from model and voice
           const engine = model.replace("puter-", "")
+          const language = voice.split("-").slice(0, 2).join("-") // e.g., "en-US" from "en-US-Standard"
 
           console.log("[v0] Puter TTS parameters:", {
             model,
             voice,
             engine,
+            language,
             inputText: inputText.slice(0, 50),
           })
 
@@ -217,6 +219,7 @@ export async function POST(request: NextRequest) {
               type: "puter-audio",
               voice: voice,
               engine: engine,
+              language: language,
               canSpeak: true,
             },
             type: "audio",
@@ -249,25 +252,24 @@ export async function POST(request: NextRequest) {
           dangerouslyAllowBrowser: true,
         })
 
-        // Ensure all parameters are valid strings with proper defaults
         const voice = String(config.voice || "Fritz-PlayAI").trim()
-        const responseFormat = "wav" // Fixed format
+        const responseFormat = String(config.responseFormat || "wav").trim()
         const inputText = String(finalPrompt || "Hello").trim()
 
-        // Additional validation to prevent undefined errors
-        if (!voice || voice === "undefined" || !inputText || inputText === "undefined") {
-          throw new Error(`Invalid parameters: voice="${voice}", inputText="${inputText.slice(0, 20)}..."`)
+        // Validate all parameters are non-empty strings
+        if (!voice || !model || !responseFormat || !inputText) {
+          throw new Error("Invalid parameters: all audio generation parameters must be non-empty strings")
         }
 
         console.log("[v0] Audio generation parameters:", {
-          model: "playai-tts", // Fixed model name
+          model,
           voice,
           responseFormat,
           inputText: inputText.slice(0, 50),
         })
 
         const wav = await client.audio.speech.create({
-          model: "playai-tts",
+          model: model,
           voice: voice,
           response_format: responseFormat,
           input: inputText,
@@ -292,7 +294,7 @@ export async function POST(request: NextRequest) {
             executionTime,
             resultLength: buffer.length,
             finalPrompt: String(finalPrompt || "").slice(0, 200),
-            model: "playai-tts",
+            model: model,
             voice: voice,
             note: "Real audio generated with Groq TTS",
           },
