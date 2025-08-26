@@ -181,7 +181,7 @@ export function NodeLibrary() {
                       key={node.id}
                       draggable
                       onDragStart={(e) => handleDragStart(e, node)}
-                      className="bg-white/5 border border-white/20 p-4 hover:bg-white/10 transition-all duration-200 hover:border-white/30 cursor-grab active:cursor-grabbing hover:shadow-lg hover:scale-[1.02]"
+                      className="bg-white/5 border-white/20 p-4 hover:bg-white/10 transition-all duration-200 hover:border-white/30 cursor-grab active:cursor-grabbing hover:shadow-lg hover:scale-[1.02] border-2"
                     >
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-3">

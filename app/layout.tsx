@@ -1,8 +1,20 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { GeistSans } from "geist/font/sans"
-import { GeistMono } from "geist/font/mono"
+import { Orbitron } from "next/font/google"
+import { Roboto_Mono } from "next/font/google"
 import "./globals.css"
+
+const orbitron = Orbitron({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-display",
+})
+
+const robotoMono = Roboto_Mono({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-mono",
+})
 
 export const metadata: Metadata = {
   title: "Clinks - AI Workflow Builder",
@@ -19,18 +31,11 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${orbitron.variable} ${robotoMono.variable} antialiased`}>
       <head>
         <script src="https://js.puter.com/v2/"></script>
-        <style>{`
-html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
-}
-        `}</style>
       </head>
-      <body>{children}</body>
+      <body className="font-mono bg-background text-foreground">{children}</body>
     </html>
   )
 }
