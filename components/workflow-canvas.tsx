@@ -180,13 +180,13 @@ export function WorkflowCanvas() {
         nodesConnectable={true}
         elementsSelectable={true}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#374151" />
+        <Background variant={BackgroundVariant.Cross} gap={20} size={1.5} color="#374151" />
         <Controls className="bg-white border border-gray-300 [&>button]:bg-gray-100 [&>button]:border-gray-300 [&>button]:text-gray-900 [&>button:hover]:bg-gray-200" />
         <MiniMap
-          className="bg-neutral-900 border border-neutral-700"
-          nodeColor="#3b82f6"
-          maskColor="rgba(0, 0, 0, 0.8)"
-        />
+  className="bg-white border border-gray-300"
+  nodeColor="#000000" // black nodes
+  maskColor="rgba(255, 255, 255, 0.8)" // light mask over white
+/>
       </ReactFlow>
     </div>
   )

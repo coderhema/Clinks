@@ -81,9 +81,18 @@ export function ReactFlowCanvas() {
         fitView
         className="bg-black"
       >
-        <Background color="#333" gap={20} size={1} className="bg-black" />
+        <Background
+  variant={BackgroundVariant.Cross}
+  gap={20}
+  size={1.5}
+  color="#374151" // dark gray
+/>
         <Controls className="bg-gray-900 border-gray-700 [&>button]:bg-gray-800 [&>button]:border-gray-600 [&>button]:text-white [&>button:hover]:bg-gray-700" />
-        <MiniMap className="bg-gray-900 border-gray-700" nodeColor="#374151" maskColor="rgba(0, 0, 0, 0.8)" />
+        <MiniMap
+  className="bg-white border border-gray-300"
+  nodeColor="#000000" // black nodes
+  maskColor="rgba(255, 255, 255, 0.8)" // light mask over white
+/>
       </ReactFlow>
     </div>
   )
