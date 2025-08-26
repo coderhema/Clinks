@@ -417,23 +417,23 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
 
       const nodeConfig = node.data.config || {}
 
-      // Validate config before use - ensure all values are proper strings or have defaults
       const validateConfigValue = (value: any, defaultValue: string): string => {
-        if (value === null || value === undefined || value === "") {
+        if (value === null || value === undefined || value === "" || typeof value !== "string") {
           return defaultValue
         }
-        return String(value)
+        return String(value).trim()
       }
 
-      // Set safe defaults for all config values based on generation type
       let defaultModel = "llama-3.1-8b-instant"
-      const defaultVoice = "Aaliyah-PlayAI"
+      const defaultVoice = "Fritz-PlayAI" // Using valid Groq voice
 
       if (generationType === "audio") {
         defaultModel = "playai-tts"
-        // Validate TTS model is present and valid
         if (!nodeConfig.model || typeof nodeConfig.model !== "string" || nodeConfig.model.trim() === "") {
           console.log(`[v0] Audio node missing model, using default: ${defaultModel}`)
+        }
+        if (!nodeConfig.voice || typeof nodeConfig.voice !== "string" || nodeConfig.voice.trim() === "") {
+          console.log(`[v0] Audio node missing voice, using default: ${defaultVoice}`)
         }
       }
 
@@ -446,14 +446,20 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
         ...nodeConfig,
       }
 
-      // Additional validation for audio generation
       if (generationType === "audio") {
-        if (!requestConfig.model || requestConfig.model === "") {
+        const validatedModel = validateConfigValue(requestConfig.model, defaultModel)
+        const validatedVoice = validateConfigValue(requestConfig.voice, defaultVoice)
+
+        if (!validatedModel || validatedModel === "") {
           throw new Error("TTS model is missing or invalid")
         }
-        if (!requestConfig.voice || requestConfig.voice === "") {
+        if (!validatedVoice || validatedVoice === "") {
           requestConfig.voice = defaultVoice
         }
+
+        requestConfig.model = validatedModel
+        requestConfig.voice = validatedVoice
+
         console.log(`[v0] Audio config validated - Model: ${requestConfig.model}, Voice: ${requestConfig.voice}`)
       }
 

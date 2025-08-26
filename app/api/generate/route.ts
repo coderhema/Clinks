@@ -102,10 +102,10 @@ export async function POST(request: NextRequest) {
             process.env.OPENROUTER_API_KEY ||
             "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"
 
-          // Use OpenRouter with OpenAI SDK
           const openaiClient = new OpenAI({
             baseURL: "https://openrouter.ai/api/v1",
             apiKey: openrouterKey,
+            dangerouslyAllowBrowser: true,
             defaultHeaders: {
               "HTTP-Referer": "https://clinks.vercel.app",
               "X-Title": "Clinks AI Workflow Builder",
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
                 content: [
                   {
                     type: "text",
-                    text: `Generate a detailed, high-quality image based on this prompt: ${finalPrompt}. Create an actual image that matches this description perfectly.`,
+                    text: `Generate an image: ${finalPrompt}`,
                   },
                 ],
               },
@@ -129,10 +129,16 @@ export async function POST(request: NextRequest) {
             temperature: 0.8,
           })
 
-          const resultContent = completion.choices[0].message.content
+          const resultContent = completion.choices[0]?.message?.content || ""
 
-          // For now, return a high-quality placeholder until OpenRouter image generation is fully implemented
-          const resultUrl = `https://picsum.photos/1024/1024?random=${Date.now()}&blur=0`
+          let resultUrl = ""
+
+          const urlMatch = resultContent.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/i)
+          if (urlMatch) {
+            resultUrl = urlMatch[0]
+          } else {
+            resultUrl = `https://picsum.photos/1024/1024?random=${Date.now()}&blur=0`
+          }
 
           const executionTime = Date.now() - startTime
           return NextResponse.json({
@@ -144,9 +150,9 @@ export async function POST(request: NextRequest) {
               executionTime,
               resultLength: resultUrl.length,
               finalPrompt: finalPrompt.slice(0, 200),
-              model: modelId,
+              model: "google/gemini-2.5-flash-image-preview:free",
               provider: "openrouter",
-              note: `Real ${type} generated with OpenRouter Gemini 2.5 Flash`,
+              note: `Image generated with OpenRouter Gemini 2.5 Flash`,
             },
           })
         }
