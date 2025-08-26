@@ -12,9 +12,6 @@
     "@ai-sdk/google": "latest",
     "@ai-sdk/groq": "latest",
     "@ai-sdk/openai": "latest",
-    "@radix-ui/react-select": "^2.1.2",
-    "@radix-ui/react-slot": "^1.1.1",
-    "@tailwindcss/postcss": "^4.1.9",
     "@xyflow/react": "latest",
     "ai": "latest",
     "class-variance-authority": "^0.7.1",
@@ -29,7 +26,7 @@
     "reactflow": "latest",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "^4.1.3"
+    "zod": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",

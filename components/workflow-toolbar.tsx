@@ -7,6 +7,7 @@ import { Button } from "./ui/button"
 import { Save, FolderOpen, Trash2, Play, Share2, ImageIcon, Video, Music, Settings } from "lucide-react"
 import { useRef, useState } from "react"
 import { SettingsModal } from "./settings-modal"
+import { useToast } from "@/hooks/use-toast"
 
 export function WorkflowToolbar() {
   const {
@@ -20,6 +21,7 @@ export function WorkflowToolbar() {
     isExecuting,
   } = useWorkflow()
   const [showSettings, setShowSettings] = useState(false)
+  const { toast } = useToast()
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -51,8 +53,16 @@ export function WorkflowToolbar() {
       try {
         const workflowData = JSON.parse(e.target?.result as string)
         importWorkflow(workflowData)
+        toast({
+          title: "Workflow Imported",
+          description: "Your workflow has been successfully loaded.",
+        })
       } catch (error) {
-        alert("Invalid workflow file format")
+        toast({
+          title: "Import Failed",
+          description: "Invalid workflow file format. Please check your file and try again.",
+          variant: "destructive",
+        })
       }
     }
     reader.readAsText(file)
@@ -75,7 +85,11 @@ export function WorkflowToolbar() {
       link.click()
       URL.revokeObjectURL(url)
     } else {
-      alert("Please select an image generation node with generated content to export")
+      toast({
+        title: "Export Failed",
+        description: "Please select an image generation node with generated content to export.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -90,7 +104,11 @@ export function WorkflowToolbar() {
       link.click()
       URL.revokeObjectURL(url)
     } else {
-      alert("Please select a video generation node with generated content to export")
+      toast({
+        title: "Export Failed",
+        description: "Please select a video generation node with generated content to export.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -105,13 +123,21 @@ export function WorkflowToolbar() {
       link.click()
       URL.revokeObjectURL(url)
     } else {
-      alert("Please select an audio generation node with generated content to export")
+      toast({
+        title: "Export Failed",
+        description: "Please select an audio generation node with generated content to export.",
+        variant: "destructive",
+      })
     }
   }
 
   const handleRunWorkflow = async () => {
     if (nodes.length === 0) {
-      alert("Add some nodes to your workflow first!")
+      toast({
+        title: "No Workflow",
+        description: "Add some nodes to your workflow first!",
+        variant: "destructive",
+      })
       return
     }
     await executeWorkflow()
@@ -130,7 +156,10 @@ export function WorkflowToolbar() {
       })
     } else {
       navigator.clipboard.writeText(shareUrl)
-      alert("Share URL copied to clipboard!")
+      toast({
+        title: "Share URL Copied",
+        description: "The workflow share URL has been copied to your clipboard!",
+      })
     }
   }
 

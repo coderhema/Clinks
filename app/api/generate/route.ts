@@ -252,13 +252,6 @@ export async function POST(request: NextRequest) {
           throw new Error("Invalid parameters: all audio generation parameters must be non-empty strings")
         }
 
-        console.log("[v0] Audio generation parameters:", {
-          model,
-          voice,
-          responseFormat,
-          inputText: inputText.slice(0, 50),
-        })
-
         const wav = await client.audio.speech.create({
           model: model,
           voice: voice,
@@ -438,7 +431,9 @@ export async function POST(request: NextRequest) {
       },
     })
   } catch (error) {
-    console.error("Generation error:", error)
+    if (process.env.NODE_ENV === "development") {
+      console.error("Generation error:", error)
+    }
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Generation failed",

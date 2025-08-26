@@ -200,8 +200,6 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
     setExecutionLogs([])
 
     try {
-      console.log("[v0] Starting workflow execution with React Flow nodes")
-
       const executionOrder = getExecutionOrder(nodes, connections)
       const nodeResults = new Map<string, any>()
 
@@ -233,7 +231,9 @@ export function WorkflowProvider({ children }: { children: React.ReactNode }) {
       }
       setExecutionLogs((prev) => [...prev, completionLog])
     } catch (error) {
-      console.error("Workflow execution failed:", error)
+      if (process.env.NODE_ENV === "development") {
+        console.error("Workflow execution failed:", error)
+      }
       setExecutionLogs((prev) => [
         ...prev,
         {

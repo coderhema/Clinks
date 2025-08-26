@@ -5,9 +5,12 @@ import { GeistMono } from "geist/font/mono"
 import "./globals.css"
 
 export const metadata: Metadata = {
-  title: "v0 App",
-  description: "Created with v0",
-  generator: "v0.app",
+  title: "Clinks - AI Workflow Builder",
+  description: "Visual workflow builder for AI image, logo, video, and text generation",
+  generator: "Next.js",
+  keywords: ["AI", "workflow", "automation", "image generation", "video generation", "text generation"],
+  authors: [{ name: "Clinks Team" }],
+  viewport: "width=device-width, initial-scale=1",
 }
 
 export default function RootLayout({

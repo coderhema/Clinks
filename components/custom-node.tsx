@@ -209,14 +209,9 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
   const isOutputNode = data.nodeType === "output"
 
   const handlePlayAudio = useCallback(async () => {
-    console.log("[v0] Play Audio button clicked")
-    console.log("[v0] Result data:", data.result)
-
     const isInContainer = window.top !== window.self
     const isSecureContext = window.isSecureContext
     const hasPuterScript = document.querySelector('script[src*="js.puter.com"]') !== null
-
-    console.log("[v0] Environment check:", { isInContainer, isSecureContext, hasPuterScript })
 
     let isPuterReady = false
 
@@ -230,13 +225,11 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
 
           const checkPuter = () => {
             if (typeof (window as any).puter !== "undefined") {
-              console.log("[v0] Puter is ready")
               resolve(true)
             } else if (attempts < maxAttempts) {
               attempts++
               setTimeout(checkPuter, 100)
             } else {
-              console.log("[v0] Puter not available - using browser TTS")
               resolve(false)
             }
           }
@@ -245,15 +238,10 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
       }
 
       isPuterReady = await quickPuterCheck()
-    } else {
-      console.log("[v0] Container environment detected - skipping Puter, using browser TTS")
     }
-
-    console.log("[v0] Puter ready status:", isPuterReady)
 
     if (data.result.type === "puter-audio" && isPuterReady) {
       try {
-        console.log("[v0] Using Puter TTS")
         const puter = (window as any).puter
 
         const voiceStr = data.result.voice || "en-US-Neural"
@@ -261,29 +249,18 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
         const fullLanguage = `${language}-${voiceStr.split("-")[1] || "US"}`
         const engine = engineType?.toLowerCase() || "neural"
 
-        console.log("[v0] Puter TTS params:", {
-          text: data.result.text,
-          language: fullLanguage,
-          engine: engine,
-        })
-
         const audio = await puter.ai.txt2speech(data.result.text, {
           language: fullLanguage,
           engine: engine,
         })
 
-        console.log("[v0] Puter TTS response:", audio)
-
         if (audio && typeof audio.play === "function") {
-          console.log("[v0] Playing Puter audio directly")
           await audio.play()
         } else {
-          console.log("[v0] Unexpected Puter audio format:", typeof audio)
           throw new Error("Invalid audio response from Puter")
         }
       } catch (error) {
-        console.error("[v0] Puter TTS error:", error)
-        console.log("[v0] Falling back to browser TTS")
+        // Fallback to browser TTS
         if ("speechSynthesis" in window) {
           const utterance = new SpeechSynthesisUtterance(data.result.text)
           utterance.rate = 0.9
@@ -293,14 +270,11 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
         }
       }
     } else if ("speechSynthesis" in window) {
-      console.log("[v0] Using browser speech synthesis")
       const utterance = new SpeechSynthesisUtterance(data.result.text)
       utterance.rate = 0.9
       utterance.pitch = 1
       utterance.volume = 0.8
       speechSynthesis.speak(utterance)
-    } else {
-      console.log("[v0] No TTS available")
     }
   }, [data.result])
 
