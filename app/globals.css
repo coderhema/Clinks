@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 @import "tailwindcss";
-@import "tw-animate-css";
+/* Removed invalid tw-animate-css import that was causing build failure */
 
 /* Custom scrollbar styling */
 ::-webkit-scrollbar {
