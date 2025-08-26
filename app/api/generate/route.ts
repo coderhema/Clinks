@@ -195,7 +195,6 @@ export async function POST(request: NextRequest) {
         const model = String(config.model || "playai-tts").trim()
 
         if (model.startsWith("puter-")) {
-          // Handle Puter TTS generation
           const voice = String(config.voice || "en-US-Standard").trim()
           const inputText = String(finalPrompt || "Hello").trim()
 
@@ -203,35 +202,27 @@ export async function POST(request: NextRequest) {
           const engine = model.replace("puter-", "")
           const language = voice.split("-").slice(0, 2).join("-") // e.g., "en-US" from "en-US-Standard"
 
-          console.log("[v0] Puter TTS parameters:", {
-            model,
-            voice,
-            engine,
-            language,
-            inputText: inputText.slice(0, 50),
-          })
-
-          // Return Puter TTS result (browser-based generation)
           const executionTime = Date.now() - startTime
           return NextResponse.json({
             result: {
-              text: finalPrompt,
+              text: inputText,
               type: "puter-audio",
               voice: voice,
               engine: engine,
               language: language,
               canSpeak: true,
+              isPuterTTS: true,
             },
             type: "audio",
             log: {
               ...executionLog,
               status: "completed",
               executionTime,
-              finalPrompt: String(finalPrompt || "").slice(0, 200),
+              finalPrompt: inputText.slice(0, 200),
               model: model,
               voice: voice,
               engine: engine,
-              note: "Puter TTS configured for browser synthesis",
+              note: "Puter TTS configured for client-side generation - will be handled by browser",
             },
           })
         }
