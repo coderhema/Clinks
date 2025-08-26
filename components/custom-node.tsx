@@ -39,14 +39,12 @@ const modelOptions = {
     { value: "gemma2-9b-it", label: "Gemma 2 9B (Groq)" },
   ],
   "image-generator": [
-    { value: "fal-ai/flux-dev", label: "FLUX.1 [dev]" },
-    { value: "fal-ai/flux-schnell", label: "FLUX.1 [schnell]" },
-    { value: "fal-ai/flux-pro", label: "FLUX.1 [pro]" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { value: "nano-banana", label: "Nano Banana" },
   ],
   "logo-generator": [
-    { value: "fal-ai/flux-dev", label: "FLUX.1 [dev]" },
-    { value: "fal-ai/flux-schnell", label: "FLUX.1 [schnell]" },
-    { value: "fal-ai/flux-pro", label: "FLUX.1 [pro]" },
+    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { value: "nano-banana", label: "Nano Banana" },
   ],
   "video-generator": [
     { value: "fal-ai/stable-video", label: "Stable Video" },
@@ -79,38 +77,6 @@ const modelOptions = {
       ],
     },
     {
-      value: "puter-standard",
-      label: "Puter Standard (puter)",
-      voices: [
-        "en-US-Standard",
-        "en-GB-Standard",
-        "fr-FR-Standard",
-        "de-DE-Standard",
-        "es-ES-Standard",
-        "it-IT-Standard",
-        "pt-BR-Standard",
-        "ja-JP-Standard",
-        "ko-KR-Standard",
-        "zh-CN-Standard",
-      ],
-    },
-    {
-      value: "puter-neural",
-      label: "Puter Neural (puter)",
-      voices: [
-        "en-US-Neural",
-        "en-GB-Neural",
-        "fr-FR-Neural",
-        "de-DE-Neural",
-        "es-ES-Neural",
-        "it-IT-Neural",
-        "pt-BR-Neural",
-        "ja-JP-Neural",
-        "ko-KR-Neural",
-        "zh-CN-Neural",
-      ],
-    },
-    {
       value: "puter-generative",
       label: "Puter Generative (puter)",
       voices: [
@@ -129,11 +95,12 @@ const modelOptions = {
   ],
 }
 
-export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
+const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
   const [content, setContent] = useState(data.content || "")
   const [model, setModel] = useState(data.model || "")
   const [voice, setVoice] = useState(data.config?.voice || "Fritz-PlayAI")
   const [file, setFile] = useState<File | null>(null)
+  const [outputType, setOutputType] = useState(data.config?.outputType || "text")
 
   useEffect(() => {
     if (data.content !== undefined && data.content !== content) {
@@ -205,9 +172,6 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
     [data],
   )
 
-  const isInputNode = data.nodeType === "text-input" || data.nodeType === "image-input"
-  const isOutputNode = data.nodeType === "output"
-
   const handlePlayAudio = useCallback(async () => {
     const isInContainer = window.top !== window.self
     const isSecureContext = window.isSecureContext
@@ -215,13 +179,11 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
 
     let isPuterReady = false
 
-    // Only try Puter if we're not in a container and the script is present
     if (!isInContainer && hasPuterScript && isSecureContext) {
-      // Quick check for Puter availability (max 1 second)
       const quickPuterCheck = () => {
         return new Promise((resolve) => {
           let attempts = 0
-          const maxAttempts = 10 // 1 second total
+          const maxAttempts = 10
 
           const checkPuter = () => {
             if (typeof (window as any).puter !== "undefined") {
@@ -260,7 +222,6 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
           throw new Error("Invalid audio response from Puter")
         }
       } catch (error) {
-        // Fallback to browser TTS
         if ("speechSynthesis" in window) {
           const utterance = new SpeechSynthesisUtterance(data.result.text)
           utterance.rate = 0.9
@@ -278,6 +239,19 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
     }
   }, [data.result])
 
+  const isInputNode = data.nodeType === "text-input" || data.nodeType === "image-input"
+  const isOutputNode = data.nodeType === "output"
+
+  const handleOutputTypeChange = useCallback(
+    (newOutputType: string) => {
+      setOutputType(newOutputType)
+      data.onUpdate?.({
+        config: { ...data.config, outputType: newOutputType },
+      })
+    },
+    [data],
+  )
+
   return (
     <div
       className={`bg-neutral-900 border-2 p-4 min-w-[280px] shadow-xl transition-all ${
@@ -288,7 +262,6 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
         willChange: "auto",
       }}
     >
-      {/* Input Handle */}
       {!isInputNode && (
         <Handle
           type="target"
@@ -298,7 +271,6 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
         />
       )}
 
-      {/* Node Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Icon className="w-4 h-4 text-blue-400" />
@@ -307,9 +279,7 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
         </div>
       </div>
 
-      {/* Node Content */}
       <div className="space-y-3">
-        {/* Text Input */}
         {data.nodeType === "text-input" && (
           <Textarea
             placeholder="Enter your text..."
@@ -320,7 +290,6 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
           />
         )}
 
-        {/* Image Input */}
         {data.nodeType === "image-input" && (
           <div className="space-y-2">
             <Input
@@ -337,8 +306,31 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
           </div>
         )}
 
-        {/* Model Selection for Generators only - not for input nodes */}
-        {models.length > 0 && !isInputNode && (
+        {isOutputNode && (
+          <div className="space-y-2">
+            <Select value={outputType} onValueChange={handleOutputTypeChange}>
+              <SelectTrigger className="bg-neutral-800 border-neutral-600 text-white text-sm">
+                <SelectValue placeholder="Select output type..." />
+              </SelectTrigger>
+              <SelectContent className="bg-neutral-800 border-neutral-600">
+                <SelectItem value="text" className="text-white hover:bg-neutral-700">
+                  Text Output
+                </SelectItem>
+                <SelectItem value="image" className="text-white hover:bg-neutral-700">
+                  Image Output
+                </SelectItem>
+                <SelectItem value="audio" className="text-white hover:bg-neutral-700">
+                  Audio Output
+                </SelectItem>
+                <SelectItem value="video" className="text-white hover:bg-neutral-700">
+                  Video Output
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {models.length > 0 && !isInputNode && !isOutputNode && (
           <div className="space-y-2">
             <Select value={model} onValueChange={handleModelChange}>
               <SelectTrigger className="bg-neutral-800 border-neutral-600 text-white text-sm">
@@ -433,7 +425,6 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
         )}
       </div>
 
-      {/* Output Handle */}
       {!isOutputNode && (
         <Handle
           type="source"
@@ -447,3 +438,5 @@ export const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => 
 })
 
 CustomNode.displayName = "CustomNode"
+
+export { CustomNode }

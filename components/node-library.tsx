@@ -78,27 +78,6 @@ const nodeCategories = {
     name: "Output Nodes",
     color: "bg-gray-700",
     nodes: [
-      {
-        id: "video-output",
-        name: "Video Output",
-        icon: Video,
-        description: "Export video results",
-        color: "bg-gray-700",
-      },
-      {
-        id: "image-output",
-        name: "Image Output",
-        icon: ImageIcon,
-        description: "Export image results",
-        color: "bg-gray-600",
-      },
-      {
-        id: "audio-output",
-        name: "Audio Output",
-        icon: Music,
-        description: "Export audio results",
-        color: "bg-gray-500",
-      },
       { id: "output", name: "General Output", icon: Upload, description: "Export any results", color: "bg-gray-800" },
     ],
   },
