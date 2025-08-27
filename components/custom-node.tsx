@@ -38,14 +38,8 @@ const modelOptions = {
     { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B (Groq)" },
     { value: "gemma2-9b-it", label: "Gemma 2 9B (Groq)" },
   ],
-  "image-generator": [
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { value: "nano-banana", label: "Nano Banana" },
-  ],
-  "logo-generator": [
-    { value: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    { value: "nano-banana", label: "Nano Banana" },
-  ],
+  "image-generator": [{ value: "dalle-3-puter", label: "DALL-E 3 (puter)" }],
+  "logo-generator": [{ value: "dalle-3-puter", label: "DALL-E 3 (puter)" }],
   "video-generator": [
     { value: "fal-ai/stable-video", label: "Stable Video" },
     { value: "fal-ai/runway-gen3", label: "Runway Gen-3" },
@@ -239,6 +233,76 @@ const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
     }
   }, [data.result])
 
+  const handleGenerateImage = useCallback(async () => {
+    if (!data.result?.isPuterImage) return
+
+    const isInContainer = window.top !== window.self
+    const isSecureContext = window.isSecureContext
+    const hasPuterScript = document.querySelector('script[src*="js.puter.com"]') !== null
+
+    let isPuterReady = false
+
+    if (!isInContainer && hasPuterScript && isSecureContext) {
+      const quickPuterCheck = () => {
+        return new Promise((resolve) => {
+          let attempts = 0
+          const maxAttempts = 10
+
+          const checkPuter = () => {
+            if (typeof (window as any).puter !== "undefined") {
+              resolve(true)
+            } else if (attempts < maxAttempts) {
+              attempts++
+              setTimeout(checkPuter, 100)
+            } else {
+              resolve(false)
+            }
+          }
+          checkPuter()
+        })
+      }
+
+      isPuterReady = await quickPuterCheck()
+    }
+
+    if (isPuterReady) {
+      try {
+        const puter = (window as any).puter
+        console.log("[v0] Generating image with Puter:", data.result.text)
+
+        // Generate image using Puter DALL-E 3 (testMode: false for real generation)
+        const imageElement = await puter.ai.txt2img(data.result.text, false)
+
+        if (imageElement && imageElement.src) {
+          console.log("[v0] Image generated successfully:", imageElement.src)
+          // Update the node's result with the actual image
+          data.onUpdate?.({
+            result: imageElement.src,
+          })
+        } else {
+          throw new Error("Invalid image response from Puter")
+        }
+      } catch (error) {
+        console.error("[v0] Puter image generation failed:", error)
+        // Update result to show error
+        data.onUpdate?.({
+          result: `Error generating image: ${error.message}`,
+        })
+      }
+    } else {
+      console.log("[v0] Puter not available, cannot generate image")
+      data.onUpdate?.({
+        result: "Puter not available - image generation requires Puter.js",
+      })
+    }
+  }, [data.result, data.onUpdate])
+
+  useEffect(() => {
+    if (data.result?.isPuterImage && data.result?.canGenerate && !data.result?.generated) {
+      handleGenerateImage()
+    }
+  }, [data.result, handleGenerateImage])
+
   const isInputNode = data.nodeType === "text-input" || data.nodeType === "image-input"
   const isOutputNode = data.nodeType === "output"
 
@@ -371,7 +435,23 @@ const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
         {data.result && !isInputNode && (
           <div className="mt-3 p-3 bg-neutral-800 border border-neutral-600">
             <div className="text-xs text-neutral-400 mb-2">Generated Output:</div>
-            {data.nodeType.includes("image") && typeof data.result === "string" && data.result.startsWith("http") ? (
+            {data.nodeType.includes("image") &&
+            data.result?.isPuterImage &&
+            data.result?.canGenerate &&
+            !data.result?.generated ? (
+              <div className="space-y-2">
+                <div className="text-xs text-neutral-300 p-2 bg-neutral-900 rounded">
+                  Generating image with DALL-E 3 via Puter...
+                </div>
+                <button
+                  onClick={handleGenerateImage}
+                  className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center justify-center gap-2"
+                >
+                  <ImageIcon className="w-3 h-3" />
+                  Generate Image
+                </button>
+              </div>
+            ) : data.nodeType.includes("image") && typeof data.result === "string" && data.result.startsWith("http") ? (
               <div className="space-y-2">
                 <img
                   src={data.result || "/placeholder.svg"}
