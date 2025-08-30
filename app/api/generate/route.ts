@@ -4,12 +4,16 @@ import { groq } from "@ai-sdk/groq"
 import { openai } from "@ai-sdk/openai"
 import { google } from "@ai-sdk/google"
 import Groq from "groq-sdk"
+import { GoogleGenerativeAI } from "@google/generative-ai"
 
 function getModelProvider(modelId: string) {
   if (!modelId || typeof modelId !== "string") {
     return "groq" // Default provider
   }
 
+  if (modelId === "gemini-2.5-flash-image-preview") {
+    return "nano-banana"
+  }
   if (modelId === "dalle-3-puter") {
     return "puter"
   }
@@ -99,6 +103,72 @@ export async function POST(request: NextRequest) {
 
     if (type === "image" || type === "logo" || type === "video") {
       try {
+        if (modelId === "gemini-2.5-flash-image-preview") {
+          const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "AIzaSyDDanPc7puQ5UUAsFbNEu0c9opaFUF8uBc"
+          const genAI = new GoogleGenerativeAI(API_KEY)
+          const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image-preview" })
+
+          const promptText = String(finalPrompt || "A beautiful image").trim()
+
+          try {
+            const result = await model.generateContent(promptText)
+            const response = result.response
+
+            for (const part of response.candidates[0].content.parts) {
+              if (part.inlineData && part.inlineData.mimeType.startsWith("image/")) {
+                const imageBase64 = part.inlineData.data
+                const imageDataUrl = `data:${part.inlineData.mimeType};base64,${imageBase64}`
+
+                const executionTime = Date.now() - startTime
+                return NextResponse.json({
+                  result: imageDataUrl,
+                  type: type,
+                  log: {
+                    ...executionLog,
+                    status: "completed",
+                    executionTime,
+                    resultLength: imageBase64.length,
+                    finalPrompt: promptText.slice(0, 200),
+                    model: "gemini-2.5-flash-image-preview",
+                    note: `Real ${type} generated with Nano Banana (Gemini 2.5 Flash Image Preview)`,
+                  },
+                })
+              }
+            }
+
+            throw new Error("No image data found in Nano Banana response")
+          } catch (error) {
+            if (error.message.includes("Quota exceeded") || error.message.includes("RATE_LIMIT_EXCEEDED")) {
+              console.log("[v0] Nano Banana quota exceeded, falling back to Puter DALL-E 3")
+
+              const inputText = String(finalPrompt || "A beautiful image").trim()
+              const executionTime = Date.now() - startTime
+
+              return NextResponse.json({
+                result: {
+                  text: inputText,
+                  type: "puter-image",
+                  model: "dalle-3",
+                  canGenerate: true,
+                  isPuterImage: true,
+                  fallbackReason: "Nano Banana quota exceeded",
+                },
+                type: "image",
+                log: {
+                  ...executionLog,
+                  status: "completed",
+                  executionTime,
+                  finalPrompt: inputText.slice(0, 200),
+                  model: "dalle-3-puter-fallback",
+                  note: "Fallback to DALL-E 3 via Puter due to Nano Banana quota limits",
+                },
+              })
+            }
+
+            throw new Error(`Nano Banana generation failed: ${error.message}`)
+          }
+        }
+
         if (modelId === "dalle-3-puter") {
           const inputText = String(finalPrompt || "A beautiful image").trim()
 
@@ -124,7 +194,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (modelId === "gemini-2.5-flash") {
-          const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "AIzaSyDQ8Ionpg6BlDeB_Xcob8Ghz2LOm6PQbpo"
+          const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "AIzaSyDDanPc7puQ5UUAsFbNEu0c9opaFUF8uBc"
 
           const geminiResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleKey}`,
@@ -175,7 +245,6 @@ export async function POST(request: NextRequest) {
         }
 
         if (modelId === "nano-banana") {
-          // Placeholder for Nano Banana - would need actual API integration
           const resultUrl = `https://placeholder.com/400x400?text=Generated+with+Nano+Banana:+${encodeURIComponent(finalPrompt.slice(0, 50))}`
 
           const executionTime = Date.now() - startTime
@@ -296,9 +365,8 @@ export async function POST(request: NextRequest) {
           const voice = String(config.voice || "en-US-Standard").trim()
           const inputText = String(finalPrompt || "Hello").trim()
 
-          // Extract engine type and language from model and voice
           const engine = model.replace("puter-", "")
-          const language = voice.split("-").slice(0, 2).join("-") // e.g., "en-US" from "en-US-Standard"
+          const language = voice.split("-").slice(0, 2).join("-")
 
           const executionTime = Date.now() - startTime
           return NextResponse.json({
@@ -345,7 +413,6 @@ export async function POST(request: NextRequest) {
         const responseFormat = String(config.responseFormat || "wav").trim()
         const inputText = String(finalPrompt || "Hello").trim()
 
-        // Validate all parameters are non-empty strings
         if (!voice || !model || !responseFormat || !inputText) {
           throw new Error("Invalid parameters: all audio generation parameters must be non-empty strings")
         }

@@ -38,8 +38,8 @@ const modelOptions = {
     { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B (Groq)" },
     { value: "gemma2-9b-it", label: "Gemma 2 9B (Groq)" },
   ],
-  "image-generator": [{ value: "dalle-3-puter", label: "DALL-E 3 (puter)" }],
-  "logo-generator": [{ value: "dalle-3-puter", label: "DALL-E 3 (puter)" }],
+  "image-generator": [{ value: "gemini-2.5-flash-image-preview", label: "Nano Banana (Gemini 2.5 Flash)" }],
+  "logo-generator": [{ value: "gemini-2.5-flash-image-preview", label: "Nano Banana (Gemini 2.5 Flash)" }],
   "video-generator": [
     { value: "fal-ai/stable-video", label: "Stable Video" },
     { value: "fal-ai/runway-gen3", label: "Runway Gen-3" },
@@ -441,7 +441,7 @@ const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
             !data.result?.generated ? (
               <div className="space-y-2">
                 <div className="text-xs text-neutral-300 p-2 bg-neutral-900 rounded">
-                  Generating image with DALL-E 3 via Puter...
+                  Generating image with Nano Banana via Puter...
                 </div>
                 <button
                   onClick={handleGenerateImage}
