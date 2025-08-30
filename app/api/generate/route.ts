@@ -406,7 +406,6 @@ export async function POST(request: NextRequest) {
 
         const client = new Groq({
           apiKey: groqKey,
-          dangerouslyAllowBrowser: true,
         })
 
         const voice = String(config.voice || "Fritz-PlayAI").trim()
@@ -417,14 +416,25 @@ export async function POST(request: NextRequest) {
           throw new Error("Invalid parameters: all audio generation parameters must be non-empty strings")
         }
 
-        const wav = await client.audio.speech.create({
-          model: model,
+        console.log("[v0] Attempting Groq audio generation with:", {
+          model,
+          voice,
+          responseFormat,
+          inputLength: inputText.length,
+        })
+
+        if (!client.audio || !client.audio.speech) {
+          throw new Error("Groq SDK audio functionality not available. Please update groq-sdk to latest version.")
+        }
+
+        const audioResponse = await client.audio.speech.create({
+          model: "playai-tts",
           voice: voice,
           response_format: responseFormat,
           input: inputText,
         })
 
-        const buffer = Buffer.from(await wav.arrayBuffer())
+        const buffer = Buffer.from(await audioResponse.arrayBuffer())
         const audioBase64 = buffer.toString("base64")
         const audioDataUrl = `data:audio/wav;base64,${audioBase64}`
 
@@ -443,12 +453,13 @@ export async function POST(request: NextRequest) {
             executionTime,
             resultLength: buffer.length,
             finalPrompt: String(finalPrompt || "").slice(0, 200),
-            model: model,
+            model: "playai-tts",
             voice: voice,
             note: "Real audio generated with Groq TTS",
           },
         })
       } catch (error) {
+        console.error("[v0] Groq audio generation error:", error)
         return NextResponse.json(
           {
             error: `Audio generation failed: ${error.message}`,
