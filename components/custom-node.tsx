@@ -471,29 +471,52 @@ const CustomNode = memo(({ data, id, selected }: NodeProps<NodeData>) => {
                 <div className="text-xs text-neutral-400">Generated video - click play to watch</div>
               </div>
             ) : data.nodeType.includes("audio") && data.result?.audioUrl ? (
-              <div className="space-y-2">
-                <audio src={data.result.audioUrl} className="w-full" controls preload="metadata" />
-                <div className="text-xs text-neutral-300 max-h-20 overflow-y-auto font-mono whitespace-pre-wrap break-words leading-relaxed bg-neutral-900 p-2 rounded">
+              <div className="space-y-2" role="region" aria-label="Audio output">
+                <audio
+                  src={data.result.audioUrl}
+                  className="w-full"
+                  controls
+                  preload="metadata"
+                  aria-label={`Generated audio: ${data.result.text}`}
+                />
+                <div
+                  className="text-xs text-neutral-300 max-h-20 overflow-y-auto font-mono whitespace-pre-wrap break-words leading-relaxed bg-neutral-900 p-2 rounded border border-neutral-700"
+                  role="textbox"
+                  aria-readonly="true"
+                  aria-label="Generated text content"
+                >
                   {data.result.text}
                 </div>
-                <div className="text-xs text-neutral-400">Voice: {data.result.voice}</div>
+                <div className="flex justify-between items-center text-xs text-neutral-400">
+                  <span>Voice: {data.result.voice}</span>
+                  <span>PlayAI TTS (Groq)</span>
+                </div>
               </div>
             ) : data.nodeType.includes("audio") && data.result?.canSpeak ? (
-              <div className="space-y-2">
-                <div className="text-xs text-neutral-300 max-h-20 overflow-y-auto font-mono whitespace-pre-wrap break-words leading-relaxed bg-neutral-900 p-2 rounded">
+              <div className="space-y-2" role="region" aria-label="Audio output">
+                <div
+                  className="text-xs text-neutral-300 max-h-20 overflow-y-auto font-mono whitespace-pre-wrap break-words leading-relaxed bg-neutral-900 p-2 rounded border border-neutral-700"
+                  role="textbox"
+                  aria-readonly="true"
+                  aria-label="Generated text content"
+                >
                   {data.result.text}
                 </div>
                 <button
                   onClick={handlePlayAudio}
                   className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors flex items-center justify-center gap-2"
+                  aria-label={`Play audio using ${data.result.type === "puter-audio" ? "Puter TTS" : "Browser TTS"}`}
                 >
-                  <Music className="w-3 h-3" />
+                  <Music className="w-3 h-3" aria-hidden="true" />
                   Play Audio {data.result.type === "puter-audio" ? "(Puter TTS)" : "(Browser TTS)"}
                 </button>
-                <div className="text-xs text-neutral-400">
-                  {data.result.type === "puter-audio"
-                    ? `Engine: ${data.result.engine} | Language: ${data.result.language}`
-                    : "Click to hear the generated audio"}
+                <div className="flex justify-between items-center text-xs text-neutral-400">
+                  <span>
+                    {data.result.type === "puter-audio"
+                      ? `Engine: ${data.result.engine} | Language: ${data.result.language}`
+                      : "Browser Speech Synthesis"}
+                  </span>
+                  <span>{data.result.type === "puter-audio" ? "Puter Generative" : "Browser TTS"}</span>
                 </div>
               </div>
             ) : (
