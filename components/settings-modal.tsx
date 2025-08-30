@@ -13,6 +13,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const [settings, setSettings] = useState({
     apiProvider: "groq",
     openrouterApiKey: "",
+    geminiApiKey: "",
     temperature: 0.7,
     maxTokens: 500,
     autoSave: true,
@@ -33,6 +34,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
     setSettings({
       apiProvider: "groq",
       openrouterApiKey: "",
+      geminiApiKey: "",
       temperature: 0.7,
       maxTokens: 500,
       autoSave: true,
@@ -72,9 +74,7 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                   <option value="openai" disabled>
                     OpenAI (Not Connected)
                   </option>
-                  <option value="gemini" disabled>
-                    Gemini (Not Connected)
-                  </option>
+                  <option value="gemini">Gemini</option>
                 </select>
               </div>
               <div>
@@ -113,6 +113,31 @@ export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
                     className="text-blue-400 hover:underline"
                   >
                     openrouter.ai/keys
+                  </a>
+                </p>
+              </div>
+            )}
+
+            {/* Gemini API key input field */}
+            {settings.apiProvider === "gemini" && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Gemini API Key</label>
+                <input
+                  type="password"
+                  value={settings.geminiApiKey}
+                  onChange={(e) => setSettings((prev) => ({ ...prev, geminiApiKey: e.target.value }))}
+                  placeholder="Enter your Gemini API key"
+                  className="w-full bg-neutral-800 border border-white/20 text-white p-3 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Get your API key from{" "}
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-400 hover:underline"
+                  >
+                    Google AI Studio
                   </a>
                 </p>
               </div>

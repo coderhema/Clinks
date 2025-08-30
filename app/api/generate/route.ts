@@ -6,6 +6,18 @@ import { google } from "@ai-sdk/google"
 import Groq from "groq-sdk"
 import { GoogleGenerativeAI } from "@google/generative-ai"
 
+function getUserSettings(request: NextRequest) {
+  const settingsHeader = request.headers.get("x-user-settings")
+  if (settingsHeader) {
+    try {
+      return JSON.parse(settingsHeader)
+    } catch (error) {
+      console.warn("Failed to parse user settings:", error)
+    }
+  }
+  return null
+}
+
 function getModelProvider(modelId: string) {
   if (!modelId || typeof modelId !== "string") {
     return "groq" // Default provider
@@ -46,6 +58,8 @@ function getModelProvider(modelId: string) {
 export async function POST(request: NextRequest) {
   try {
     const { type, prompt, config = {}, nodeId, inputData } = await request.json()
+
+    const userSettings = getUserSettings(request)
 
     let finalPrompt = prompt
     if (!finalPrompt && inputData) {
@@ -104,7 +118,21 @@ export async function POST(request: NextRequest) {
     if (type === "image" || type === "logo" || type === "video") {
       try {
         if (modelId === "gemini-2.5-flash-image-preview") {
-          const API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "AIzaSyDDanPc7puQ5UUAsFbNEu0c9opaFUF8uBc"
+          const API_KEY =
+            userSettings?.geminiApiKey ||
+            process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+            "AIzaSyDDanPc7puQ5UUAsFbNEu0c9opaFUF8uBc"
+
+          if (!API_KEY || API_KEY === "AIzaSyDDanPc7puQ5UUAsFbNEu0c9opaFUF8uBc") {
+            return NextResponse.json(
+              {
+                error: "Gemini API key required for image generation. Please add your Gemini API key in Settings.",
+                log: { ...executionLog, status: "failed", error: "Missing or invalid Gemini API key" },
+              },
+              { status: 400 },
+            )
+          }
+
           const genAI = new GoogleGenerativeAI(API_KEY)
           const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-image-preview" })
 
@@ -131,6 +159,7 @@ export async function POST(request: NextRequest) {
                     finalPrompt: promptText.slice(0, 200),
                     model: "gemini-2.5-flash-image-preview",
                     note: `Real ${type} generated with Nano Banana (Gemini 2.5 Flash Image Preview)`,
+                    usingUserApiKey: !!userSettings?.geminiApiKey,
                   },
                 })
               }
@@ -194,7 +223,10 @@ export async function POST(request: NextRequest) {
         }
 
         if (modelId === "gemini-2.5-flash") {
-          const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || "AIzaSyDDanPc7puQ5UUAsFbNEu0c9opaFUF8uBc"
+          const googleKey =
+            userSettings?.geminiApiKey ||
+            process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+            "AIzaSyDDanPc7puQ5UUAsFbNEu0c9opaFUF8uBc"
 
           const geminiResponse = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleKey}`,
@@ -240,25 +272,7 @@ export async function POST(request: NextRequest) {
               finalPrompt: finalPrompt.slice(0, 200),
               model: "gemini-2.5-flash",
               note: `Real ${type} generated with Gemini 2.5 Flash`,
-            },
-          })
-        }
-
-        if (modelId === "nano-banana") {
-          const resultUrl = `https://placeholder.com/400x400?text=Generated+with+Nano+Banana:+${encodeURIComponent(finalPrompt.slice(0, 50))}`
-
-          const executionTime = Date.now() - startTime
-          return NextResponse.json({
-            result: resultUrl,
-            type: type,
-            log: {
-              ...executionLog,
-              status: "completed",
-              executionTime,
-              resultLength: resultUrl.length,
-              finalPrompt: finalPrompt.slice(0, 200),
-              model: "nano-banana",
-              note: `Real ${type} generated with Nano Banana`,
+              usingUserApiKey: !!userSettings?.geminiApiKey,
             },
           })
         }
@@ -473,11 +487,12 @@ export async function POST(request: NextRequest) {
     let modelInstance
     try {
       if (provider === "google") {
-        const googleKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY
+        const googleKey = userSettings?.geminiApiKey || process.env.GOOGLE_GENERATIVE_AI_API_KEY
         if (!googleKey) {
           return NextResponse.json(
             {
-              error: "Google AI API key required. Please add GOOGLE_GENERATIVE_AI_API_KEY to environment variables.",
+              error:
+                "Google AI API key required. Please add your Gemini API key in Settings or add GOOGLE_GENERATIVE_AI_API_KEY to environment variables.",
               log: { ...executionLog, status: "failed", error: "Missing API key" },
             },
             { status: 400 },
@@ -485,11 +500,12 @@ export async function POST(request: NextRequest) {
         }
         modelInstance = google(modelId)
       } else if (provider === "openrouter") {
-        const openrouterKey = process.env.OPENROUTER_API_KEY
+        const openrouterKey = userSettings?.openrouterApiKey || process.env.OPENROUTER_API_KEY
         if (!openrouterKey) {
           return NextResponse.json(
             {
-              error: "OpenRouter API key required. Please add OPENROUTER_API_KEY to environment variables.",
+              error:
+                "OpenRouter API key required. Please add your OpenRouter API key in Settings or add OPENROUTER_API_KEY to environment variables.",
               log: { ...executionLog, status: "failed", error: "Missing API key" },
             },
             { status: 400 },
