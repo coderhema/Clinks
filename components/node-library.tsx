@@ -117,7 +117,7 @@ export function NodeLibrary() {
       <div className="p-6 border-b border-white/10 bg-black">
         <h2 className="text-white font-bold text-xl mb-4 flex items-center gap-3">
           <Grip className="w-6 h-6 text-white" />
-          Node Library
+          Clinks
         </h2>
         <div className="relative">
           <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
