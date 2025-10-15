@@ -36,7 +36,8 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "zod": "latest"
+    "zod": "latest",
+    "zod-to-json-schema": "^3.24.6"
   },
   "devDependencies": {
     "@types/node": "^22",

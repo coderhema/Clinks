@@ -90,8 +90,7 @@ function TamboChat() {
                 AI Workflow Assistant
               </p>
               <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
-                Ask me to add nodes, connect workflows, or help with your AI
-                pipeline
+                I can add nodes to your workflow! Try asking me to:
               </p>
               <div className="mt-6 grid grid-cols-2 gap-2 max-w-md mx-auto text-xs">
                 <div className="bg-white/5 border border-white/10 p-3 text-left">
@@ -99,17 +98,26 @@ function TamboChat() {
                   node"
                 </div>
                 <div className="bg-white/5 border border-white/10 p-3 text-left">
-                  <span className="text-primary">•</span> "Create an image
-                  workflow"
+                  <span className="text-primary">•</span> "Add an image
+                  generator"
                 </div>
                 <div className="bg-white/5 border border-white/10 p-3 text-left">
-                  <span className="text-primary">•</span> "Connect nodes
-                  together"
+                  <span className="text-primary">•</span> "Show workflow status"
                 </div>
                 <div className="bg-white/5 border border-white/10 p-3 text-left">
-                  <span className="text-primary">•</span> "Help me generate a
-                  logo"
+                  <span className="text-primary">•</span> "Add a video
+                  generator"
                 </div>
+              </div>
+              <div className="mt-4 text-xs text-gray-600 max-w-md mx-auto">
+                <p className="font-bold text-primary mb-1">
+                  Available Node Types:
+                </p>
+                <p className="text-gray-500">
+                  text-generator, image-generator, video-generator,
+                  audio-generator, logo-generator, text-input, image-input,
+                  output
+                </p>
               </div>
             </div>
           ) : (
