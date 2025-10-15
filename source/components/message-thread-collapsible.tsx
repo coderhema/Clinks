@@ -191,7 +191,7 @@ export function MessageThreadCollapsible() {
 
   // Check for API key on mount
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_TAMBO_API_KEY
+    const apiKey = process.env.NEXT_PUBLIC_TAMBO_TOKEN
     if (!apiKey || apiKey === "your_api_key_here") {
       setHasApiKey(false)
     } else {

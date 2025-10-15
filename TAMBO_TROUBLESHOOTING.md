@@ -23,7 +23,7 @@ Your API key is either:
 
 2. **Verify the content looks like this:**
    \`\`\`env
-   NEXT_PUBLIC_TAMBO_API_KEY=tambo_xxxxxxxxxxxxxxxxxxxxxxxx
+   NEXT_PUBLIC_TAMBO_TOKEN=tambo_xxxxxxxxxxxxxxxxxxxxxxxx
    \`\`\`
 
 3. **Make sure:**
@@ -52,7 +52,7 @@ Your API key should:
 
 **Test in browser console:**
 \`\`\`javascript
-console.log(process.env.NEXT_PUBLIC_TAMBO_API_KEY);
+console.log(process.env.NEXT_PUBLIC_TAMBO_TOKEN);
 // Should print: tambo_xxxxxxxxxxxx
 // NOT: undefined or "your_api_key_here"
 \`\`\`
@@ -98,15 +98,13 @@ Open browser DevTools → Network tab, then try sending a message:
 
 ### ❌ Wrong: Using quotes
 \`\`\`env
-NEXT_PUBLIC_TAMBO_API_KEY="tambo_xxx"  # DON'T DO THIS
+NEXT_PUBLIC_TAMBO_TOKEN="tambo_xxx"  # DON'T DO THIS
 \`\`\`
 
 ### ✅ Correct: No quotes
 \`\`\`env
-NEXT_PUBLIC_TAMBO_API_KEY=tambo_xxx
+NEXT_PUBLIC_TAMBO_TOKEN=tambo_xxx
 \`\`\`
-
----
 
 ### ❌ Wrong: File in wrong location
 \`\`\`
@@ -121,8 +119,6 @@ Clinks/
 ├── .env.local  ← CORRECT!
 └── app/
 \`\`\`
-
----
 
 ### ❌ Wrong: Not restarting server
 - Changing `.env.local` while server is running
@@ -171,7 +167,7 @@ npx pnpm run dev  # Restart
 Open browser console and run:
 \`\`\`javascript
 // Check if key is loaded
-console.log('API Key:', process.env.NEXT_PUBLIC_TAMBO_API_KEY);
+console.log('API Key:', process.env.NEXT_PUBLIC_TAMBO_TOKEN);
 
 // Should output something like: tambo_abc123xyz...
 // NOT: undefined or "your_api_key_here"
@@ -182,7 +178,7 @@ console.log('API Key:', process.env.NEXT_PUBLIC_TAMBO_API_KEY);
 ## 📋 Complete Setup Checklist
 
 - [ ] File `.env.local` exists in project root
-- [ ] API key is on a line like: `NEXT_PUBLIC_TAMBO_API_KEY=tambo_xxx`
+- [ ] API key is on a line like: `NEXT_PUBLIC_TAMBO_TOKEN=tambo_xxx`
 - [ ] No quotes around the API key value
 - [ ] No extra spaces before/after the key
 - [ ] Key is at least 40 characters long

@@ -39,7 +39,7 @@ The AI can display real-time workflow information including:
 4. Replace `your_api_key_here` with your actual API key:
 
 \`\`\`env
-NEXT_PUBLIC_TAMBO_API_KEY=your_actual_api_key_here
+NEXT_PUBLIC_TAMBO_TOKEN=your_actual_api_key_here
 \`\`\`
 
 ### Step 2: Run Your Application
