@@ -38,15 +38,15 @@ The AI can display real-time workflow information including:
 3. Open the `.env.local` file in your project root
 4. Replace `your_api_key_here` with your actual API key:
 
-```env
+\`\`\`env
 NEXT_PUBLIC_TAMBO_API_KEY=your_actual_api_key_here
-```
+\`\`\`
 
 ### Step 2: Run Your Application
 
-```bash
+\`\`\`bash
 npx pnpm run dev
-```
+\`\`\`
 
 ### Step 3: Start Using the AI Assistant
 
@@ -59,26 +59,26 @@ npx pnpm run dev
 Try these commands with your AI assistant:
 
 ### Adding Nodes
-```
+\`\`\`
 "Add a text input node"
 "Create an image generator node"
 "Add a video generator to my workflow"
 "I need a logo generator node"
-```
+\`\`\`
 
 ### Workflow Information
-```
+\`\`\`
 "Show me my workflow status"
 "How many nodes do I have?"
 "What's the current state of my workflow?"
-```
+\`\`\`
 
 ### Building Complete Workflows
-```
+\`\`\`
 "Create a text-to-image workflow"
 "Set up a logo generation pipeline"
 "Build a workflow for generating videos from text"
-```
+\`\`\`
 
 ## 🎨 Design System
 
@@ -131,7 +131,7 @@ To add new Tambo-renderable components:
 2. Export a Zod schema for props validation
 3. Register in `components/client-providers.tsx`:
 
-```tsx
+\`\`\`tsx
 const newComponentSchema = z.object({
   // your props
 });
@@ -145,7 +145,7 @@ const tamboComponents = [
     propsSchema: newComponentSchema,
   },
 ];
-```
+\`\`\`
 
 ### Styling the Chat Interface
 
@@ -167,10 +167,10 @@ Modify `source/components/message-thread-collapsible.tsx` to adjust:
 - Verify API key is correctly formatted (should start with `tambo_`)
 - Make sure you replaced `your_api_key_here` with your actual key
 - Restart dev server after changing environment variables:
-  ```bash
+  \`\`\`bash
   # Stop the server (Ctrl+C), then restart:
   npx pnpm run dev
-  ```
+  \`\`\`
 - Check browser console for the warning message about missing API key
 
 ### Components not rendering

@@ -17,14 +17,14 @@ Your API key is either:
 ### The Solution
 
 1. **Check your `.env.local` file exists in project root:**
-   ```bash
+   \`\`\`bash
    ls -la .env.local
-   ```
+   \`\`\`
 
 2. **Verify the content looks like this:**
-   ```env
+   \`\`\`env
    NEXT_PUBLIC_TAMBO_API_KEY=tambo_xxxxxxxxxxxxxxxxxxxxxxxx
-   ```
+   \`\`\`
 
 3. **Make sure:**
    - The key starts with `tambo_`
@@ -33,11 +33,11 @@ Your API key is either:
    - The file is named `.env.local` (not `.env` or `.env.local.txt`)
 
 4. **Restart your dev server:**
-   ```bash
+   \`\`\`bash
    # Stop the server (Ctrl+C)
    # Then restart:
    npx pnpm run dev
-   ```
+   \`\`\`
 
 ---
 
@@ -51,11 +51,11 @@ Your API key should:
 - Contain only alphanumeric characters and underscores
 
 **Test in browser console:**
-```javascript
+\`\`\`javascript
 console.log(process.env.NEXT_PUBLIC_TAMBO_API_KEY);
 // Should print: tambo_xxxxxxxxxxxx
 // NOT: undefined or "your_api_key_here"
-```
+\`\`\`
 
 ### Step 2: Check File Location
 
@@ -65,7 +65,7 @@ The `.env.local` file MUST be in the **project root**, same level as:
 - `app/` directory
 
 **Correct structure:**
-```
+\`\`\`
 Clinks/
 ├── .env.local          ← HERE!
 ├── package.json
@@ -73,7 +73,7 @@ Clinks/
 ├── app/
 │   └── layout.tsx
 └── components/
-```
+\`\`\`
 
 ### Step 3: Verify API Key is Valid
 
@@ -97,30 +97,30 @@ Open browser DevTools → Network tab, then try sending a message:
 ## 🚨 Common Mistakes
 
 ### ❌ Wrong: Using quotes
-```env
+\`\`\`env
 NEXT_PUBLIC_TAMBO_API_KEY="tambo_xxx"  # DON'T DO THIS
-```
+\`\`\`
 
 ### ✅ Correct: No quotes
-```env
+\`\`\`env
 NEXT_PUBLIC_TAMBO_API_KEY=tambo_xxx
-```
+\`\`\`
 
 ---
 
 ### ❌ Wrong: File in wrong location
-```
+\`\`\`
 Clinks/
 └── app/
     └── .env.local  ← WRONG!
-```
+\`\`\`
 
 ### ✅ Correct: File in root
-```
+\`\`\`
 Clinks/
 ├── .env.local  ← CORRECT!
 └── app/
-```
+\`\`\`
 
 ---
 
@@ -129,11 +129,11 @@ Clinks/
 - Expecting changes to take effect immediately
 
 ### ✅ Correct: Always restart
-```bash
+\`\`\`bash
 # After ANY change to .env.local:
 Ctrl+C  # Stop server
 npx pnpm run dev  # Restart
-```
+\`\`\`
 
 ---
 
@@ -169,13 +169,13 @@ npx pnpm run dev  # Restart
 
 ### Option 2: Manual browser test
 Open browser console and run:
-```javascript
+\`\`\`javascript
 // Check if key is loaded
 console.log('API Key:', process.env.NEXT_PUBLIC_TAMBO_API_KEY);
 
 // Should output something like: tambo_abc123xyz...
 // NOT: undefined or "your_api_key_here"
-```
+\`\`\`
 
 ---
 
@@ -204,13 +204,13 @@ Look for one of these when you run `npx pnpm run dev`:
 
 ### Enable debug mode
 Add to `.env.local`:
-```env
+\`\`\`env
 NEXT_PUBLIC_TAMBO_DEBUG=true
-```
+\`\`\`
 This will show more detailed error messages in the console.
 
 ### Get a fresh start
-```bash
+\`\`\`bash
 # Stop server
 Ctrl+C
 
@@ -219,7 +219,7 @@ rm -rf .next
 
 # Restart
 npx pnpm run dev
-```
+\`\`\`
 
 ---
 
