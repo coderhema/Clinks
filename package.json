@@ -1,6 +1,6 @@
 {
-  "name": "ai-workflow-builder",
-  "version": "0.1.0",
+  "name": "clinks",
+  "version": "0.1.2",
   "private": true,
   "scripts": {
     "build": "next build",
@@ -18,9 +18,7 @@
     "@radix-ui/react-select": "latest",
     "@radix-ui/react-slot": "latest",
     "@radix-ui/react-toast": "latest",
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.0.0",
-    "@types/react-dom": "^18.0.0",
+    "@tambo-ai/react": "^0.57.0",
     "@xyflow/react": "latest",
     "ai": "latest",
     "autoprefixer": "^10.4.16",
@@ -38,7 +36,6 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss": "^3.4.17",
     "tailwindcss-animate": "^1.0.7",
-    "typescript": "^5.0.0",
     "zod": "latest"
   },
   "devDependencies": {

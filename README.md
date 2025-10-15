@@ -1,30 +1,43 @@
 # Clinks
+Clinks is a tambo extension that allows you to create generative media workflows by prompting it with text.
 
-*Automatically synced with your [v0.app](https://v0.app) deployments*
+## Installation
 
-[![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/opedepodepes-olugbemis-projects/v0-ai-workflow-designer)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.app-black?style=for-the-badge)](https://v0.app/chat/projects/u5Ih8UNUb1S)
+### Requirements
+- Node.js 18+ (includes pnpm)
+- Git
 
-## Overview
+### Local Setup
+1. Clone the repository
+   ```bash
+   git clone https://github.com/your-org/clinks.git
+   cd clinks
+   ```
 
-This repository will stay in sync with your deployed chats on [v0.app](https://v0.app).
-Any changes you make to your deployed app will be automatically pushed to this repository from [v0.app](https://v0.app).
+2. Install dependencies
+   ```bash
+   pnpm install
+   ```
 
-## Deployment
+3. Build the project
+   ```bash
+   pnpm run build
+   ```
 
-Your project is live at:
+4. Run locally
+   ```bash
+   pnpm start
+   ```
+   The app will open at http://localhost:3000
 
-**[https://vercel.com/opedepodepes-olugbemis-projects/v0-ai-workflow-designer](https://vercel.com/opedepodepes-olugbemis-projects/v0-ai-workflow-designer)**
+### Development Mode
+To run with hot-reload for active development:
+```bash
+pnpm run dev
+```
 
-## Build your app
-
-Continue building your app on:
-
-**[https://v0.app/chat/projects/u5Ih8UNUb1S](https://v0.app/chat/projects/u5Ih8UNUb1S)**
-
-## How It Works
-
-1. Create and modify your project using [v0.app](https://v0.app)
-2. Deploy your chats from the v0 interface
-3. Changes are automatically pushed to this repository
-4. Vercel deploys the latest version from this repository
+### Docker (optional)
+```bash
+docker build -t clinks .
+docker run -p 3000:3000 clinks
+```
