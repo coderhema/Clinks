@@ -29,57 +29,12 @@ function TamboChat() {
 
       try {
         setError(null);
-        const result = await submit({
-          streamResponse: true,
-        }).catch((streamError) => {
-          console.error("Stream error details:", streamError);
-
-          // Check for common stream error causes
-          const errorStr = String(streamError);
-
-          if (errorStr.includes("401") || errorStr.includes("Unauthorized")) {
-            throw new Error("INVALID_API_KEY");
-          } else if (
-            errorStr.includes("Network") ||
-            errorStr.includes("fetch")
-          ) {
-            throw new Error("NETWORK_ERROR");
-          } else if (errorStr.includes("429")) {
-            throw new Error("RATE_LIMIT");
-          } else {
-            throw new Error("STREAM_ERROR");
-          }
-        });
-        return result;
+        await submit();
       } catch (err: any) {
         console.error("Error submitting message:", err);
-        const errorMessage = err?.message || "Failed to send message";
-
-        // Provide specific troubleshooting steps based on error type
-        if (errorMessage === "INVALID_API_KEY") {
-          setError(
-            "❌ Invalid API Key\n\nYour API key is not valid. Please:\n1. Verify the key in .env.local is correct\n2. Check you copied the full key from tambo.co\n3. Ensure there are no extra spaces\n4. Restart your dev server after updating",
-          );
-        } else if (errorMessage === "NETWORK_ERROR") {
-          setError(
-            "🌐 Network Error\n\nCannot connect to Tambo. Please:\n1. Check your internet connection\n2. Verify tambo.co is accessible\n3. Check if a firewall is blocking the request",
-          );
-        } else if (errorMessage === "RATE_LIMIT") {
-          setError(
-            "⏱️ Rate Limit Exceeded\n\nToo many requests. Please wait a moment and try again.",
-          );
-        } else if (
-          errorMessage === "STREAM_ERROR" ||
-          errorMessage.includes("stream")
-        ) {
-          setError(
-            "⚡ Stream Response Error\n\nThe most common cause is an invalid or missing API key.\n\nTroubleshooting steps:\n1. Check your API key in .env.local\n2. Make sure it starts with 'tambo_'\n3. Restart your dev server: Ctrl+C, then 'npx pnpm run dev'\n4. If problem persists, get a new key from tambo.co",
-          );
-        } else {
-          setError(
-            `Error: ${errorMessage}\n\nPlease check the browser console for more details.`,
-          );
-        }
+        setError(
+          "⚡ Failed to send message\n\nPlease check:\n1. Your API key in .env.local is correct\n2. The key has no quotes around it\n3. You restarted dev server after adding the key\n4. Check browser console for details",
+        );
       }
     };
 

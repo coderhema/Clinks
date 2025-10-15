@@ -9,6 +9,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useState } from "react";
+import { testTamboApiKey } from "@/lib/test-tambo-key";
 
 export function TamboSetupHelp() {
   const [copied, setCopied] = useState(false);
@@ -22,39 +23,6 @@ export function TamboSetupHelp() {
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  };
-
-  const testApiKey = async () => {
-    setTestingKey(true);
-    setTestResult(null);
-    setTestMessage("");
-
-    try {
-      const apiKey = process.env.NEXT_PUBLIC_TAMBO_API_KEY;
-
-      if (!apiKey || apiKey === "your_api_key_here") {
-        setTestResult("error");
-        setTestMessage("No API key found. Please add it to .env.local");
-        return;
-      }
-
-      // Simple validation
-      if (apiKey.length < 20) {
-        setTestResult("error");
-        setTestMessage("API key appears invalid (too short)");
-        return;
-      }
-
-      setTestResult("success");
-      setTestMessage(
-        "API key format looks valid! Please restart your dev server if you just added it.",
-      );
-    } catch (err) {
-      setTestResult("error");
-      setTestMessage("Error checking API key");
-    } finally {
-      setTestingKey(false);
-    }
   };
 
   return (
@@ -208,7 +176,26 @@ export function TamboSetupHelp() {
       {/* Test API Key Button */}
       <div className="border-t border-white/10 pt-4">
         <button
-          onClick={testApiKey}
+          onClick={async () => {
+            setTestingKey(true);
+            setTestResult(null);
+            setTestMessage("");
+
+            try {
+              const apiKey = process.env.NEXT_PUBLIC_TAMBO_API_KEY || "";
+              const result = await testTamboApiKey(apiKey);
+
+              setTestResult(result.success ? "success" : "error");
+              setTestMessage(result.message);
+
+              console.log("Tambo API Test Result:", result);
+            } catch (err: any) {
+              setTestResult("error");
+              setTestMessage(err.message || "Test failed");
+            } finally {
+              setTestingKey(false);
+            }
+          }}
           disabled={testingKey}
           className="w-full bg-primary/20 border-2 border-primary/50 text-white px-4 py-3 hover:bg-primary/30 transition-colors duration-200 flex items-center justify-center gap-2 font-bold uppercase text-sm tracking-wider disabled:opacity-50"
         >
