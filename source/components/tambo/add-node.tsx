@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useWorkflow } from "@/components/workflow-provider";
 import { CheckCircle, Plus } from "lucide-react";
+import { z } from "zod";
 
 interface AddNodeProps {
   nodeType: string;
@@ -81,29 +82,40 @@ export function AddNodeComponent({
   );
 }
 
-export const addNodeSchema = {
-  nodeType: {
-    type: "string",
-    description: "The type of node to add (e.g., 'text-input', 'image-generator', 'text-generator', 'video-generator', 'logo-generator', 'audio-generator', 'output')",
-    required: true,
-  },
-  nodeName: {
-    type: "string",
-    description: "A descriptive name for the node",
-    required: true,
-  },
-  position: {
-    type: "object",
-    description: "The x,y position on the canvas where the node should be placed",
-    properties: {
-      x: { type: "number" },
-      y: { type: "number" },
-    },
-    required: false,
-  },
-  autoAdd: {
-    type: "boolean",
-    description: "Whether to automatically add the node (default: true)",
-    required: false,
-  },
-};
+export const addNodeSchema = z.object({
+  nodeType: z
+    .enum([
+      "text-input",
+      "image-input",
+      "text-generator",
+      "image-generator",
+      "video-generator",
+      "logo-generator",
+      "audio-generator",
+      "output",
+    ])
+    .describe(
+      "The type of node to add. Choose based on what the user wants to create: text-input for entering text, image-input for uploading images, text-generator for AI text generation, image-generator for creating images, video-generator for creating videos, logo-generator for creating logos, audio-generator for creating audio, and output for displaying results.",
+    ),
+  nodeName: z
+    .string()
+    .describe(
+      "A clear, descriptive name for the node that explains its purpose in the workflow",
+    ),
+  position: z
+    .object({
+      x: z.number().describe("X coordinate on the canvas (typically 100-800)"),
+      y: z.number().describe("Y coordinate on the canvas (typically 100-600)"),
+    })
+    .optional()
+    .describe(
+      "Position where the node should appear on the canvas. If not specified, uses default with random offset to prevent stacking.",
+    ),
+  autoAdd: z
+    .boolean()
+    .optional()
+    .default(true)
+    .describe(
+      "Whether to automatically add the node to the canvas. Set to true to add immediately.",
+    ),
+});

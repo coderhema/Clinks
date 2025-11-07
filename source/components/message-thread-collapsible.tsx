@@ -1,49 +1,80 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState, useEffect, useRef } from "react"
-import { MessageSquare, X, Sparkles, AlertCircle } from "lucide-react"
-import { useTamboThread, useTamboThreadInput } from "@tambo-ai/react"
-import { TamboSetupHelp } from "./tambo-setup-help"
+import { useState, useEffect, useRef } from "react";
+import { MessageSquare, X, Sparkles, AlertCircle } from "lucide-react";
+import { useTamboThread, useTamboThreadInput } from "@tambo-ai/react";
+import { TamboSetupHelp } from "./tambo-setup-help";
 
 // Inner component that uses Tambo hooks
 function TamboChat() {
-  const { thread } = useTamboThread()
-  const { value, setValue, submit, isPending, isError, error: submitError } = useTamboThreadInput()
-  const [error, setError] = useState<string | null>(null)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { thread } = useTamboThread();
+  const {
+    value,
+    setValue,
+    submit,
+    isPending,
+    isError,
+    error: submitError,
+  } = useTamboThreadInput();
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const messages = thread?.messages || []
+  const messages = thread?.messages || [];
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!value || typeof value !== "string" || !value.trim() || isPending) return
+    e.preventDefault();
+
+    // Prevent multiple submissions
+    if (
+      !value ||
+      typeof value !== "string" ||
+      !value.trim() ||
+      isPending ||
+      isSubmitting
+    ) {
+      return;
+    }
 
     try {
-      setError(null)
-      await submit()
+      setIsSubmitting(true);
+      setError(null);
+      await submit();
     } catch (err: any) {
-      console.error("Error submitting message:", err)
-      setError(
-        "⚡ Failed to send message\n\nPlease check:\n1. Your API key in .env.local is correct\n2. The key has no quotes around it\n3. You restarted dev server after adding the key\n4. Check browser console for details",
-      )
+      console.error("Error submitting message:", err);
+
+      // Check if it's a race condition error
+      if (err.message && err.message.includes("already in processing")) {
+        setError(
+          "Please wait for the previous message to finish processing before sending another one.",
+        );
+      } else {
+        setError(
+          "⚡ Failed to send message\n\nPlease check:\n1. Your API key in .env.local is correct\n2. The key has no quotes around it\n3. You restarted dev server after adding the key\n4. Check browser console for details",
+        );
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-  }
+  };
 
   // Update error from submit
   useEffect(() => {
     if (isError && submitError) {
-      setError(submitError.message || "An error occurred while sending your message")
+      setError(
+        submitError.message || "An error occurred while sending your message",
+      );
     }
-  }, [isError, submitError])
+  }, [isError, submitError]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" })
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length])
+  }, [messages.length]);
 
   return (
     <>
@@ -54,10 +85,17 @@ function TamboChat() {
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-warning flex-shrink-0 mt-0.5" />
               <div className="flex-1">
-                <p className="text-warning text-sm font-bold mb-1 uppercase tracking-wider">Error</p>
-                <p className="text-white text-xs font-mono whitespace-pre-wrap">{error}</p>
+                <p className="text-warning text-sm font-bold mb-1 uppercase tracking-wider">
+                  Error
+                </p>
+                <p className="text-white text-xs font-mono whitespace-pre-wrap">
+                  {error}
+                </p>
               </div>
-              <button onClick={() => setError(null)} className="text-warning hover:text-warning/80 transition-colors">
+              <button
+                onClick={() => setError(null)}
+                className="text-warning hover:text-warning/80 transition-colors"
+              >
                 <X className="h-4 w-4" />
               </button>
             </div>
@@ -70,22 +108,28 @@ function TamboChat() {
               <MessageSquare className="h-20 w-20 mx-auto mb-4 opacity-20" />
               <div className="absolute inset-0 blur-xl bg-primary/20" />
             </div>
-            <p className="text-lg font-bold mb-2 text-white uppercase tracking-wider">AI Workflow Assistant</p>
+            <p className="text-lg font-bold mb-2 text-white uppercase tracking-wider">
+              AI Workflow Assistant
+            </p>
             <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
-              Ask me to add nodes, connect workflows, or help with your AI pipeline
+              Ask me to add nodes, connect workflows, or help with your AI
+              pipeline
             </p>
             <div className="mt-6 grid grid-cols-2 gap-2 max-w-md mx-auto text-xs">
               <div className="bg-white/5 border border-white/10 p-3 text-left">
-                <span className="text-primary">•</span> "Add a text generator node"
+                <span className="text-primary">•</span> "Add a text generator
+                node"
               </div>
               <div className="bg-white/5 border border-white/10 p-3 text-left">
-                <span className="text-primary">•</span> "Create an image workflow"
+                <span className="text-primary">•</span> "Create an image
+                workflow"
               </div>
               <div className="bg-white/5 border border-white/10 p-3 text-left">
                 <span className="text-primary">•</span> "Connect nodes together"
               </div>
               <div className="bg-white/5 border border-white/10 p-3 text-left">
-                <span className="text-primary">•</span> "Help me generate a logo"
+                <span className="text-primary">•</span> "Help me generate a
+                logo"
               </div>
             </div>
           </div>
@@ -115,28 +159,37 @@ function TamboChat() {
                       message.content[0] &&
                       typeof message.content[0].text === "string" &&
                       message.content[0].text.trim() && (
-                        <p className="text-sm leading-relaxed font-mono">{message.content[0].text}</p>
+                        <p className="text-sm leading-relaxed font-mono">
+                          {message.content[0].text}
+                        </p>
                       )}
                     {message.renderedComponent && (
-                      <div className="mt-3 pt-3 border-t border-white/10">{message.renderedComponent}</div>
+                      <div className="mt-3 pt-3 border-t border-white/10">
+                        {message.renderedComponent}
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             ))}
-            {isPending && (
+            {(isPending || isSubmitting) && (
               <div className="flex justify-start animate-in fade-in duration-200">
                 <div className="bg-white/5 border-2 border-white/20 p-4">
-                  <div className="flex space-x-2">
-                    <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
-                    <div
-                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    />
-                    <div
-                      className="w-2 h-2 bg-primary rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    />
+                  <div className="flex items-center gap-3">
+                    <div className="flex space-x-2">
+                      <div className="w-2 h-2 bg-primary rounded-full animate-bounce" />
+                      <div
+                        className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                        style={{ animationDelay: "0.1s" }}
+                      />
+                      <div
+                        className="w-2 h-2 bg-primary rounded-full animate-bounce"
+                        style={{ animationDelay: "0.2s" }}
+                      />
+                    </div>
+                    <span className="text-gray-400 text-xs">
+                      AI is thinking...
+                    </span>
                   </div>
                 </div>
               </div>
@@ -147,7 +200,10 @@ function TamboChat() {
       </div>
 
       {/* Input */}
-      <form onSubmit={handleSubmit} className="relative p-4 border-t-2 border-white/20 bg-black/80">
+      <form
+        onSubmit={handleSubmit}
+        className="relative p-4 border-t-2 border-white/20 bg-black/80"
+      >
         <div className="flex gap-2">
           <div className="relative flex-1">
             <input
@@ -163,41 +219,46 @@ function TamboChat() {
           </div>
           <button
             type="submit"
-            disabled={isPending || !value.trim()}
+            disabled={isPending || isSubmitting || !value.trim()}
             className="px-6 py-3 bg-primary text-white font-bold uppercase tracking-wider text-sm hover:bg-primary/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border-2 border-primary hover:shadow-lg hover:shadow-primary/50 disabled:hover:shadow-none relative group"
           >
-            <span className="relative z-10">{isPending ? "Thinking..." : "Send"}</span>
+            <span className="relative z-10">
+              {isPending || isSubmitting ? "Thinking..." : "Send"}
+            </span>
             <div className="absolute inset-0 bg-gradient-to-r from-primary/50 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
           </button>
         </div>
       </form>
 
       {/* Loading indicator in header when pending */}
-      {isPending && (
-        <div className="absolute top-4 right-16 flex items-center gap-1">
-          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse delay-75" />
-          <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse delay-150" />
+      {(isPending || isSubmitting) && (
+        <div className="absolute top-4 right-16 flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse delay-75" />
+            <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse delay-150" />
+          </div>
+          <span className="text-primary text-xs font-mono">Processing...</span>
         </div>
       )}
     </>
-  )
+  );
 }
 
 // Main component
 export function MessageThreadCollapsible() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [hasApiKey, setHasApiKey] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
+  const [hasApiKey, setHasApiKey] = useState(false);
 
   // Check for API key on mount
   useEffect(() => {
-    const apiKey = process.env.NEXT_PUBLIC_TAMBO_TOKEN
+    const apiKey = process.env.NEXT_PUBLIC_TAMBO_TOKEN;
     if (!apiKey || apiKey === "your_api_key_here") {
-      setHasApiKey(false)
+      setHasApiKey(false);
     } else {
-      setHasApiKey(true)
+      setHasApiKey(true);
     }
-  }, [])
+  }, []);
 
   return (
     <div className="fixed bottom-0 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center">
@@ -215,7 +276,9 @@ export function MessageThreadCollapsible() {
                   <Sparkles className="h-5 w-5 text-primary animate-pulse" />
                   <div className="absolute inset-0 blur-md bg-primary/50" />
                 </div>
-                <h3 className="text-white font-bold text-sm uppercase tracking-wider">AI Assistant</h3>
+                <h3 className="text-white font-bold text-sm uppercase tracking-wider">
+                  AI Assistant
+                </h3>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
@@ -254,7 +317,9 @@ export function MessageThreadCollapsible() {
 
         <div className="relative z-10 flex items-center gap-3">
           <MessageSquare className="h-5 w-5 transition-transform group-hover:scale-110 duration-300" />
-          <span className="font-bold uppercase tracking-wider text-sm">{isOpen ? "Close AI" : "AI Assistant"}</span>
+          <span className="font-bold uppercase tracking-wider text-sm">
+            {isOpen ? "Close AI" : "AI Assistant"}
+          </span>
           {!hasApiKey && (
             <div className="bg-warning text-white text-xs font-bold px-2 py-1 flex items-center justify-center border-2 border-warning">
               SETUP
@@ -269,5 +334,5 @@ export function MessageThreadCollapsible() {
         <div className="absolute bottom-0 right-0 w-2 h-2 border-b-2 border-r-2 border-white/50" />
       </button>
     </div>
-  )
+  );
 }

@@ -154,6 +154,14 @@ npx pnpm run dev  # Restart
 **Problem:** Usually invalid API key
 **Solution:** Follow Step 1-4 above
 
+### "Thread is already in processing (STREAMING_RESPONSE)"
+**Problem:** Multiple messages sent before previous one finishes
+**Solution:** 
+- Wait for the AI to finish responding before sending another message
+- Look for "AI is thinking..." indicator in the chat
+- The submit button should be disabled during processing
+- If stuck, refresh the page (F5)
+
 ---
 
 ## 🧪 Test Your Setup
@@ -235,6 +243,8 @@ npx pnpm run dev
 3. **Restart after changes** - Always restart dev server after modifying `.env.local`
 4. **Check the chat UI** - The app now shows helpful error messages directly in the chat interface
 5. **Browser cache** - Try a hard refresh (Ctrl+Shift+R) if issues persist
+6. **Wait for responses** - Don't send multiple messages rapidly - wait for "AI is thinking..." to disappear
+7. **One message at a time** - The AI can only process one message at a time per thread
 
 ---
 

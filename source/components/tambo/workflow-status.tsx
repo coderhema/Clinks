@@ -2,6 +2,7 @@
 
 import { useWorkflow } from "@/components/workflow-provider";
 import { Workflow, Zap, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { z } from "zod";
 
 interface WorkflowStatusProps {
   message?: string;
@@ -59,10 +60,13 @@ export function WorkflowStatusComponent({ message }: WorkflowStatusProps) {
           </div>
           <div className="space-y-1">
             {Object.entries(
-              nodes.reduce((acc, node) => {
-                acc[node.type] = (acc[node.type] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>)
+              nodes.reduce(
+                (acc, node) => {
+                  acc[node.type] = (acc[node.type] || 0) + 1;
+                  return acc;
+                },
+                {} as Record<string, number>,
+              ),
             ).map(([type, count]) => (
               <div
                 key={type}
@@ -117,10 +121,11 @@ export function WorkflowStatusComponent({ message }: WorkflowStatusProps) {
   );
 }
 
-export const workflowStatusSchema = {
-  message: {
-    type: "string",
-    description: "An optional custom message to display with the workflow status",
-    required: false,
-  },
-};
+export const workflowStatusSchema = z.object({
+  message: z
+    .string()
+    .optional()
+    .describe(
+      "An optional custom message to display with the workflow status. Use this to give context or instructions to the user.",
+    ),
+});

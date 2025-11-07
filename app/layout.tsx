@@ -9,12 +9,16 @@ const orbitron = Orbitron({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-display",
+  fallback: ["system-ui", "arial"],
+  adjustFontFallback: false,
 });
 
 const robotoMono = Roboto_Mono({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-mono",
+  fallback: ["monospace"],
+  adjustFontFallback: false,
 });
 
 export const metadata: Metadata = {

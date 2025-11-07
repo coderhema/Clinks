@@ -10,9 +10,16 @@ This document describes the Tambo AI integration in Clinks, which provides an ag
 - Real-time message streaming
 - Automatic component rendering
 
-### 2. **Agentic Node Management**
-The AI assistant can autonomously add nodes to your workflow canvas:
+### 2. **Intelligent Workflow Building**
+The AI assistant can build complete workflows through natural language:
 
+- **Single Node Addition** - Add individual nodes with custom positioning
+- **Complete Workflow Creation** - Build entire multi-node pipelines with one command
+- **Automatic Node Connection** - Connect nodes intelligently in the correct order
+- **Workflow Execution** - Run workflows and generate content
+- **Status Monitoring** - Track workflow progress and results
+
+**Node Types Available:**
 - **Text Input** - Input text prompts
 - **Image Input** - Upload reference images
 - **Text Generator** - Generate AI text content
@@ -58,27 +65,47 @@ npx pnpm run dev
 
 Try these commands with your AI assistant:
 
-### Adding Nodes
+### Building Complete Workflows (Recommended)
+\`\`\`
+"Build a text-to-image workflow"
+"Create a logo generation pipeline"
+"Set up a video creation workflow"
+"Build a workflow that takes text and generates an image"
+"Create a complete audio generation pipeline"
+\`\`\`
+
+### Adding Individual Nodes
 \`\`\`
 "Add a text input node"
 "Create an image generator node"
 "Add a video generator to my workflow"
-"I need a logo generator node"
+"I need a logo generator"
+"Add an output node"
+\`\`\`
+
+### Executing Workflows
+\`\`\`
+"Execute the workflow"
+"Run my workflow"
+"Generate content"
 \`\`\`
 
 ### Workflow Information
 \`\`\`
-"Show me my workflow status"
+"Show my workflow status"
 "How many nodes do I have?"
-"What's the current state of my workflow?"
+"What's in my workflow?"
+"What nodes are connected?"
 \`\`\`
 
-### Building Complete Workflows
+### Getting Help
 \`\`\`
-"Create a text-to-image workflow"
-"Set up a logo generation pipeline"
-"Build a workflow for generating videos from text"
+"How do I create a text-to-image workflow?"
+"What kind of workflow should I build?"
+"Help me set up image generation"
 \`\`\`
+
+> 📖 **For a comprehensive guide with more examples and best practices, see [AI_WORKFLOW_GUIDE.md](./AI_WORKFLOW_GUIDE.md)**
 
 ## 🎨 Design System
 
@@ -101,18 +128,34 @@ The Tambo integration follows Clinks' cyberpunk design system:
 - Handles Tambo thread integration
 
 #### 2. **AddNodeComponent** (`source/components/tambo/add-node.tsx`)
-- Registered Tambo component for adding nodes
+- Registered Tambo component for adding single nodes
 - Automatically adds nodes to the workflow canvas
 - Displays confirmation with node details
 
-#### 3. **WorkflowStatusComponent** (`source/components/tambo/workflow-status.tsx`)
-- Registered Tambo component for showing workflow status
-- Real-time workflow statistics
-- Node type breakdown and execution status
+#### 3. **BuildWorkflowComponent** (`source/components/tambo/build-workflow.tsx`)
+- Creates complete multi-node workflows
+- Automatically positions and connects nodes
+- Visual feedback during workflow construction
+- Ideal for building entire pipelines with one command
 
-#### 4. **ClientProviders** (`components/client-providers.tsx`)
+#### 4. **ConnectNodesComponent** (`source/components/tambo/connect-nodes.tsx`)
+- Connects two existing nodes together
+- Enables custom data flow patterns
+- Shows visual confirmation of connections
+
+#### 5. **ExecuteWorkflowComponent** (`source/components/tambo/execute-workflow.tsx`)
+- Runs the workflow to generate content
+- Shows execution status and progress
+- Displays results in the preview panel
+
+#### 6. **WorkflowStatusComponent** (`source/components/tambo/workflow-status.tsx`)
+- Displays current workflow status
+- Real-time workflow statistics
+- Node type breakdown and execution state
+
+#### 7. **ClientProviders** (`components/client-providers.tsx`)
 - Wraps app with TamboProvider
-- Registers custom components with Tambo
+- Registers all custom components with Tambo
 - Configures API key and component schemas
 
 ### Hooks Used
@@ -193,23 +236,38 @@ If you see errors like `handleStreamResponse` in the console:
 - Check browser console for node addition errors
 
 ## 📚 Resources
+## 📖 Related Documentation
 
+- **[AI Workflow Guide](./AI_WORKFLOW_GUIDE.md)** - Complete guide to building workflows with AI
 - [Tambo Documentation](https://docs.tambo.co)
 - [Tambo React Hooks Reference](https://docs.tambo.co/api-reference/react-hooks)
 - [Tambo Component Library](https://ui.tambo.co)
+- [Tambo Troubleshooting](./TAMBO_TROUBLESHOOTING.md)
 
-## 🎯 Future Enhancements
+## 🎯 Current Capabilities
+
+The AI assistant can now:
+
+- ✅ Add individual nodes to the canvas
+- ✅ Build complete multi-node workflows
+- ✅ Connect nodes together automatically or manually
+- ✅ Execute workflows to generate content
+- ✅ Show workflow status and statistics
+- ✅ Handle natural language commands
+- ✅ Provide visual feedback during operations
+
+## 🔮 Future Enhancements
 
 Potential improvements for the Tambo integration:
 
-- [ ] Node connection management via AI
-- [ ] Workflow templates and presets
+- [ ] Node configuration via chat (edit node settings)
+- [ ] Workflow templates and presets library
 - [ ] Voice input support
 - [ ] Multi-threaded conversations
-- [ ] Workflow execution control
-- [ ] Node configuration via chat
 - [ ] Export/import workflows through AI
 - [ ] Suggested workflows based on user intent
+- [ ] Real-time collaboration features
+- [ ] Advanced node parameter tuning
 
 ## 📄 License
 
